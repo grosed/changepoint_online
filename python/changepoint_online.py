@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/gpl-3.0.txt>.
 
-import math
+import math,sys
 
 
 ##############
@@ -64,7 +64,7 @@ class Poisson(Family):
     def argmax(self, cs):
         agm = (cs.Sn - self.St) / (cs.n - self.tau)
 
-        return agm if agm != 0 else 0.000000000001
+        return agm if agm != 0 else sys.float_info.min
 
 
 class classGamma(Family):
