@@ -42,8 +42,7 @@ class Guassian(Family):
         c = cs.n - self.tau
         S = cs.Sn - self.St
         return -0.5 * c * x ** 2 + S * x + self.m0
-
-
+    
 class Bernoulli(Family):
     def eval(self, x, cs):
         c = cs.n - self.tau
@@ -59,7 +58,6 @@ class Bernoulli(Family):
         else:
             return agm
 
-
 class Poisson(Family):
     def eval(self, x, cs):
         c = cs.n - self.tau
@@ -73,7 +71,7 @@ class Poisson(Family):
         return agm if agm != 0 else 0.000000000001
 
 
-class Gamma(Family):
+class classGamma(Family):
     def __init__(self, St=0, tau=0, m0=0, shape=1):
         super().__init__(St, tau, m0)
         self.shape = shape
@@ -86,8 +84,10 @@ class Gamma(Family):
     def argmax(self, cs):
         return (cs.Sn - self.St) / (self.shape * (cs.n - self.tau))
 
+def Gamma(shape) : return lambda St,tau,m0 : classGamma(St,tau,m0,shape)
 
-class AR1(Family):
+    
+class classAR1(Family):
     def __init__(self, St=0, tau=0, m0=0, phi=0):
         super().__init__(St, tau, m0)
         self.phi = phi
@@ -101,6 +101,8 @@ class AR1(Family):
     def argmax(self, cs):
         return (cs.Sn - self.St) / ((cs.n - self.tau) * (1 - self.phi))
 
+
+def AR1(phi) : return lambda St,tau,m0 : classAR1(St,tau,m0,phi)
     
 import numpy as np
 
