@@ -21,11 +21,10 @@ import math
 ##############
 
 class Family:
-    def __init__(self, St=0, tau=0, m0=0, Mdiff=0):
+    def __init__(self, St=0, tau=0, m0=0):
         self.St = St  # sum of the data from 1 to tau
         self.tau = tau  # tau, point at which one piece was introduced
         self.m0 = m0
-        self.Mdiff = Mdiff
 
     # generic of the eval
     def eval(self, x, cs):
@@ -75,8 +74,8 @@ class Poisson(Family):
 
 
 class Gamma(Family):
-    def __init__(self, St=0, tau=0, m0=0, Mdiff=0, shape=1):
-        super().__init__(St, tau, m0, Mdiff)
+    def __init__(self, St=0, tau=0, m0=0, shape=1):
+        super().__init__(St, tau, m0)
         self.shape = shape
 
     def eval(self, x, cs):
@@ -89,8 +88,8 @@ class Gamma(Family):
 
 
 class AR1(Family):
-    def __init__(self, St=0, tau=0, m0=0, Mdiff=0, phi=0):
-        super().__init__(St, tau, m0, Mdiff)
+    def __init__(self, St=0, tau=0, m0=0, phi=0):
+        super().__init__(St, tau, m0)
         self.phi = phi
 
     def eval(self, x, cs):
