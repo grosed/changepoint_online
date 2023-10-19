@@ -28,42 +28,31 @@ class Family:
         self.Mdiff = Mdiff
 
     # generic of the eval
-    def eval(self, x, cs, theta0=None):
+    def eval(self, x, cs):
         raise NotImplementedError("Subclasses should implement eval")
 
     def argmax(self, cs):
         return (cs.Sn - self.St) / (cs.n - self.tau)
 
-    def get_max(self, cs, theta0):
-        return self.eval(self.argmax(cs), cs, theta0)
+    def get_max(self, cs):
+        return self.eval(self.argmax(cs), cs)
 
 
 class Guassian(Family):
-    def eval(self, x, cs, theta0=None):
+    def eval(self, x, cs):
         c = cs.n - self.tau
         S = cs.Sn - self.St
-
-        if theta0 is None:
-            return -0.5 * c * x ** 2 + S * x + self.m0
-
-        else:
-            out = c * x ** 2 - 2 * S * x - (c * theta0 ** 2 - 2 * S * theta0)
-            return -out / 2
+        return -0.5 * c * x ** 2 + S * x + self.m0
 
 
 class Bernoulli(Family):
-    def eval(self, x, cs, theta0=None):
+    def eval(self, x, cs):
         c = cs.n - self.tau
         S = cs.Sn - self.St
-
-        if theta0 is None:
-            return S * math.log(x) + (c - S) * math.log(1 - x) + self.m0
-        else:
-            return S * math.log(x / theta0) + (c - S) * math.log((1 - x) / (1 - theta0))
+        return S * math.log(x) + (c - S) * math.log(1 - x) + self.m0
 
     def argmax(self, cs):
         agm = (cs.Sn - self.St) / (cs.n - self.tau)
-
         if agm == 0:
             return 1e-8
         elif agm == 1:
@@ -73,14 +62,11 @@ class Bernoulli(Family):
 
 
 class Poisson(Family):
-    def eval(self, x, cs, theta0=None):
+    def eval(self, x, cs):
         c = cs.n - self.tau
         S = cs.Sn - self.St
+        return -c * x + S * math.log(x) + self.m0
 
-        if theta0 is None:
-            return -c * x + S * math.log(x) + self.m0
-        else:
-            return -c * (x - theta0) + S * math.log(x / theta0)
 
     def argmax(self, cs):
         agm = (cs.Sn - self.St) / (cs.n - self.tau)
@@ -93,15 +79,10 @@ class Gamma(Family):
         super().__init__(St, tau, m0, Mdiff)
         self.shape = shape
 
-    def eval(self, x, cs, theta0=None):
+    def eval(self, x, cs):
         c = cs.n - self.tau
         S = cs.Sn - self.St
-
-        if theta0 is None:
-            return -c * self.shape * math.log(x) - S * (1 / x) + self.m0
-
-        else:
-            return c * self.shape * math.log(theta0 / x) - S * (1 / x - 1 / theta0)
+        return -c * self.shape * math.log(x) - S * (1 / x) + self.m0
 
     def argmax(self, cs):
         return (cs.Sn - self.St) / (self.shape * (cs.n - self.tau))
@@ -112,20 +93,16 @@ class AR1(Family):
         super().__init__(St, tau, m0, Mdiff)
         self.phi = phi
 
-    def eval(self, x, cs, theta0=None):
+    def eval(self, x, cs):
         c = (cs.n - self.tau) * (1 - self.phi) ** 2
         S = (cs.Sn - self.St) * (1 - self.phi)
-
-        if theta0 is None:
-            out = c * x ** 2 - 2 * S * x + (1 - self.phi) * self.m0
-            return -out
-
-        else:
-            out = c * x ** 2 - 2 * S * x - (c * theta0 ** 2 - 2 * S * theta0)
-            return -out
+        out = c * x ** 2 - 2 * S * x + (1 - self.phi) * self.m0
+        return -out
 
     def argmax(self, cs):
         return (cs.Sn - self.St) / ((cs.n - self.tau) * (1 - self.phi))
+
+    
 import numpy as np
 
 
@@ -151,14 +128,14 @@ class Focus:
 
     def changepoint(self,theta0) :
         if self.Ql.opt > self.Qr.opt:
-            i = np.argmax([p.get_max(self.cs, theta0) - 0.0 for p in self.Ql.ps[:-1]])
+            i = np.argmax([p.get_max(self.cs) - 0.0 for p in self.Ql.ps[:-1]])
             most_likely_changepoint_location = self.Ql.ps[i].tau
         else:
-            i = np.argmax([p.get_max(self.cs, theta0) - 0.0 for p in self.Qr.ps[:-1]])
+            i = np.argmax([p.get_max(self.cs) - 0.0 for p in self.Qr.ps[:-1]])
             most_likely_changepoint_location = self.Qr.ps[i].tau
         return {"stopping_time": self.cs.n,"changepoint": most_likely_changepoint_location}
         
-    def update(self, y, theta0, adp_max_check):
+    def update(self, y, theta0):
 
         # updating the cusums and count with the new point
         self.cs.n += 1
@@ -167,18 +144,15 @@ class Focus:
         # updating the value of the max of the null (for pre-change mean unkown)
         m0val = 0.0
         if theta0 is None:
-            m0val = self.Qr.ps[0].get_max(self.cs, theta0)
+            m0val = self.Qr.ps[0].get_max(self.cs)
 
         # pruning step
         Focus._prune(self.Qr, self.cs, "right", theta0)  # true for the right pruning
         Focus._prune(self.Ql, self.cs, "left", theta0)  # false for the left pruning
 
         # check the maximum
-        if adp_max_check:
-            pass
-        else:
-            self.Qr.opt = Focus._get_max_all(self.Qr, self.cs, theta0, m0val)
-            self.Ql.opt = Focus._get_max_all(self.Ql, self.cs, theta0, m0val)
+        self.Qr.opt = Focus._get_max_all(self.Qr, self.cs, theta0, m0val)
+        self.Ql.opt = Focus._get_max_all(self.Ql, self.cs, theta0, m0val)
 
         # add a new point
         self.Qr.ps.append(self.newP(self.cs.Sn, self.cs.n, m0val))
@@ -210,7 +184,7 @@ class Focus:
         Q.ps = Q.ps[:i]
         return Q
 
-    def _get_max_all(Q, cs, theta0, m0val):
-        return max(p.get_max(cs, theta0) - m0val for p in Q.ps)
+    def _get_max_all(Q, cs,theta0, m0val):
+        return max(p.get_max(cs) - m0val for p in Q.ps)
 
     
