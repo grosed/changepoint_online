@@ -60,10 +60,8 @@ class Poisson(Family):
         S = cs.Sn - self.St
         return -c * x + S * math.log(x) + self.m0
 
-
     def argmax(self, cs):
         agm = (cs.Sn - self.St) / (cs.n - self.tau)
-
         return agm if agm != 0 else sys.float_info.min
 
 
@@ -178,7 +176,6 @@ class Focus:
                 break
         Q.ps = Q.ps[:i]
         return Q
-
     
     def _get_max_all(Q, cs, m0):
         return max(p.get_max(cs) - m0 for p in Q.ps)
