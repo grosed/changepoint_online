@@ -147,12 +147,12 @@ class Focus:
             m0val = self.Qr.ps[0].get_max(self.cs)
 
         # pruning step
-        Focus._prune(self.Qr, self.cs, "right", theta0)  # true for the right pruning
-        Focus._prune(self.Ql, self.cs, "left", theta0)  # false for the left pruning
+        Focus._prune(self.Qr, self.cs, "right")  # true for the right pruning
+        Focus._prune(self.Ql, self.cs, "left")  # false for the left pruning
 
         # check the maximum
-        self.Qr.opt = Focus._get_max_all(self.Qr, self.cs, theta0, m0val)
-        self.Ql.opt = Focus._get_max_all(self.Ql, self.cs, theta0, m0val)
+        self.Qr.opt = Focus._get_max_all(self.Qr, self.cs, m0val)
+        self.Ql.opt = Focus._get_max_all(self.Ql, self.cs, m0val)
 
         # add a new point
         self.Qr.ps.append(self.newP(self.cs.Sn, self.cs.n, m0val))
@@ -167,16 +167,16 @@ class Focus:
             self.Sn = Sn
             self.n = n
 
-    def _prune(Q, cs, side="right", theta0=None):
+    def _prune(Q, cs, side="right"):
         i = len(Q.ps)
         if i <= 1:
             return Q
         if side == "right":
             def cond(q1, q2):
-                return q1.argmax(cs) <= (max(theta0, q2.argmax(cs)) if theta0 is not None else q2.argmax(cs))
+                return q1.argmax(cs) <= q2.argmax(cs)
         elif side == "left":
             def cond(q1, q2):
-                return q1.argmax(cs) >= (min(theta0, q2.argmax(cs)) if theta0 is not None else q2.argmax(cs))
+                return q1.argmax(cs) >= q2.argmax(cs)
         while cond(Q.ps[i - 1], Q.ps[i - 2]):
             i -= 1
             if i == 1:
@@ -184,7 +184,7 @@ class Focus:
         Q.ps = Q.ps[:i]
         return Q
 
-    def _get_max_all(Q, cs,theta0, m0val):
+    def _get_max_all(Q, cs, m0val):
         return max(p.get_max(cs) - m0val for p in Q.ps)
 
     
