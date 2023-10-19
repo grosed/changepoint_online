@@ -21,14 +21,10 @@ import math
 ##############
 
 class Family:
-    def __init__(self, St=0, tau=0, m0=0):
+    def __init__(self, St, tau, m0):
         self.St = St  # sum of the data from 1 to tau
         self.tau = tau  # tau, point at which one piece was introduced
         self.m0 = m0
-
-    # generic of the eval
-    def eval(self, x, cs):
-        raise NotImplementedError("Subclasses should implement eval")
 
     def argmax(self, cs):
         return (cs.Sn - self.St) / (cs.n - self.tau)
