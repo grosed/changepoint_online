@@ -126,7 +126,7 @@ class Focus:
     def threshold(self) :
         return max(self.Ql.opt, self.Qr.opt)
 
-    def changepoint(self,theta0) :
+    def changepoint(self) :
         if self.Ql.opt > self.Qr.opt:
             i = np.argmax([p.get_max(self.cs) - 0.0 for p in self.Ql.ps[:-1]])
             most_likely_changepoint_location = self.Ql.ps[i].tau
@@ -135,16 +135,14 @@ class Focus:
             most_likely_changepoint_location = self.Qr.ps[i].tau
         return {"stopping_time": self.cs.n,"changepoint": most_likely_changepoint_location}
         
-    def update(self, y, theta0):
+    def update(self, y):
 
         # updating the cusums and count with the new point
         self.cs.n += 1
         self.cs.Sn += y
 
         # updating the value of the max of the null (for pre-change mean unkown)
-        m0val = 0.0
-        if theta0 is None:
-            m0val = self.Qr.ps[0].get_max(self.cs)
+        m0val = self.Qr.ps[0].get_max(self.cs)
 
         # pruning step
         Focus._prune(self.Qr, self.cs, "right")  # true for the right pruning
@@ -184,6 +182,7 @@ class Focus:
         Q.ps = Q.ps[:i]
         return Q
 
+    
     def _get_max_all(Q, cs, m0val):
         return max(p.get_max(cs) - m0val for p in Q.ps)
 
