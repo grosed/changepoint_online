@@ -17,7 +17,7 @@ import math,sys
 
 
 ##############
-##  Pieces  ##
+##  Families  ##
 ##############
 
 class Family:
@@ -105,19 +105,19 @@ import numpy as np
 
 
 ################################
-##### EX-FOCUS ITERATION #######
+##########   FOCUS   ##########
 ################################
 
 
 
 
 class Focus:
-    def __init__(self, newP):
+    def __init__(self, family):
 
         self.cs = Focus._CUSUM()
-        self.Ql = Focus._Cost(ps=[newP(0.0, 0, 0.0)])
-        self.Qr = Focus._Cost(ps=[newP(0.0, 0, 0.0)])
-        self.newP = newP
+        self.Ql = Focus._Cost(ps=[family(0.0, 0, 0.0)])
+        self.Qr = Focus._Cost(ps=[family(0.0, 0, 0.0)])
+        self.family = family
 
 
     def threshold(self) :
@@ -139,19 +139,19 @@ class Focus:
         self.cs.Sn += y
 
         # updating the value of the max of the null (for pre-change mean unkown)
-        m0val = self.Qr.ps[0].get_max(self.cs)
+        m0 = self.Qr.ps[0].get_max(self.cs)
 
         # pruning step
         Focus._prune(self.Qr, self.cs, "right")  # true for the right pruning
         Focus._prune(self.Ql, self.cs, "left")  # false for the left pruning
 
         # check the maximum
-        self.Qr.opt = Focus._get_max_all(self.Qr, self.cs, m0val)
-        self.Ql.opt = Focus._get_max_all(self.Ql, self.cs, m0val)
+        self.Qr.opt = Focus._get_max_all(self.Qr, self.cs, m0)
+        self.Ql.opt = Focus._get_max_all(self.Ql, self.cs, m0)
 
         # add a new point
-        self.Qr.ps.append(self.newP(self.cs.Sn, self.cs.n, m0val))
-        self.Ql.ps.append(self.newP(self.cs.Sn, self.cs.n, m0val))
+        self.Qr.ps.append(self.family(self.cs.Sn, self.cs.n, m0))
+        self.Ql.ps.append(self.family(self.cs.Sn, self.cs.n, m0))
 
     class _Cost:
         def __init__(self, ps, opt=0):
@@ -180,7 +180,7 @@ class Focus:
         return Q
 
     
-    def _get_max_all(Q, cs, m0val):
-        return max(p.get_max(cs) - m0val for p in Q.ps)
+    def _get_max_all(Q, cs, m0):
+        return max(p.get_max(cs) - m0 for p in Q.ps)
 
     
