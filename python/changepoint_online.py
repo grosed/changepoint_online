@@ -21,13 +21,13 @@ import math,sys
 ##############
 
 class Family:
-    def __init__(self, St, tau, m0):
-        self.St = St  # sum of the data from 1 to tau
+    def __init__(self, st, tau, m0):
+        self.st = st  # sum of the data from 1 to tau
         self.tau = tau  # tau, point at which one piece was introduced
         self.m0 = m0
 
     def argmax(self, cs):
-        return (cs.Sn - self.St) / (cs.n - self.tau)
+        return (cs.sn - self.st) / (cs.n - self.tau)
 
     def get_max(self, cs):
         return self.eval(self.argmax(cs), cs)
@@ -36,67 +36,67 @@ class Family:
 class Guassian(Family):
     def eval(self, x, cs):
         c = cs.n - self.tau
-        S = cs.Sn - self.St
-        return -0.5 * c * x ** 2 + S * x + self.m0
+        s = cs.sn - self.st
+        return -0.5 * c * x ** 2 + s * x + self.m0
     
 class Bernoulli(Family):
     def eval(self, x, cs):
         c = cs.n - self.tau
-        S = cs.Sn - self.St
-        return S * math.log(x) + (c - S) * math.log(1 - x) + self.m0
+        s = cs.sn - self.st
+        return S * math.log(x) + (c - s) * math.log(1 - x) + self.m0
 
     def argmax(self, cs):
-        agm = (cs.Sn - self.St) / (cs.n - self.tau)
+        agm = (cs.sn - self.st) / (cs.n - self.tau)
         if agm == 0:
-            return 1e-8
+            return sys.float_info.min
         elif agm == 1:
-            return 1 - 1e-8
+            return 1 - sys.float_info.min
         else:
             return agm
 
 class Poisson(Family):
     def eval(self, x, cs):
         c = cs.n - self.tau
-        S = cs.Sn - self.St
-        return -c * x + S * math.log(x) + self.m0
+        s = cs.sn - self.st
+        return -c * x + s * math.log(x) + self.m0
 
     def argmax(self, cs):
-        agm = (cs.Sn - self.St) / (cs.n - self.tau)
+        agm = (cs.sn - self.st) / (cs.n - self.tau)
         return agm if agm != 0 else sys.float_info.min
 
 
-class classGamma(Family):
-    def __init__(self, St=0, tau=0, m0=0, shape=1):
-        super().__init__(St, tau, m0)
+class GammaClass(Family):
+    def __init__(self, st, tau, m0, shape):
+        super().__init__(st, tau, m0)
         self.shape = shape
 
     def eval(self, x, cs):
         c = cs.n - self.tau
-        S = cs.Sn - self.St
-        return -c * self.shape * math.log(x) - S * (1 / x) + self.m0
+        s = cs.sn - self.st
+        return -c * self.shape * math.log(x) - s * (1 / x) + self.m0
 
     def argmax(self, cs):
-        return (cs.Sn - self.St) / (self.shape * (cs.n - self.tau))
+        return (cs.sn - self.st) / (self.shape * (cs.n - self.tau))
 
-def Gamma(shape) : return lambda St,tau,m0 : classGamma(St,tau,m0,shape)
+def Gamma(shape) : return lambda st,tau,m0 : GammaClass(st,tau,m0,shape)
 
     
-class classAR1(Family):
-    def __init__(self, St=0, tau=0, m0=0, phi=0):
-        super().__init__(St, tau, m0)
+class AR1Class(Family):
+    def __init__(self, st, tau, m0, phi):
+        super().__init__(st, tau, m0)
         self.phi = phi
 
     def eval(self, x, cs):
         c = (cs.n - self.tau) * (1 - self.phi) ** 2
-        S = (cs.Sn - self.St) * (1 - self.phi)
-        out = c * x ** 2 - 2 * S * x + (1 - self.phi) * self.m0
+        s = (cs.sn - self.st) * (1 - self.phi)
+        out = c * x ** 2 - 2 * s * x + (1 - self.phi) * self.m0
         return -out
 
     def argmax(self, cs):
-        return (cs.Sn - self.St) / ((cs.n - self.tau) * (1 - self.phi))
+        return (cs.sn - self.st) / ((cs.n - self.tau) * (1 - self.phi))
 
 
-def AR1(phi) : return lambda St,tau,m0 : classAR1(St,tau,m0,phi)
+def AR1(phi) : return lambda st,tau,m0 : AR1Class(st,tau,m0,phi)
     
 import numpy as np
 
@@ -113,71 +113,71 @@ class Focus:
     def __init__(self, family):
 
         self.cs = Focus._CUSUM()
-        self.Ql = Focus._Cost(ps=[family(0.0, 0, 0.0)])
-        self.Qr = Focus._Cost(ps=[family(0.0, 0, 0.0)])
+        self.ql = Focus._Cost(ps = [family(0.0, 0, 0.0)])
+        self.qr = Focus._Cost(ps = [family(0.0, 0, 0.0)])
         self.family = family
 
 
     def threshold(self) :
-        return max(self.Ql.opt, self.Qr.opt)
+        return max(self.ql.opt, self.qr.opt)
 
     def changepoint(self) :
-        if self.Ql.opt > self.Qr.opt:
-            i = np.argmax([p.get_max(self.cs) - 0.0 for p in self.Ql.ps[:-1]])
-            most_likely_changepoint_location = self.Ql.ps[i].tau
+        if self.ql.opt > self.qr.opt:
+            i = np.argmax([p.get_max(self.cs) - 0.0 for p in self.ql.ps[:-1]])
+            most_likely_changepoint_location = self.ql.ps[i].tau
         else:
-            i = np.argmax([p.get_max(self.cs) - 0.0 for p in self.Qr.ps[:-1]])
-            most_likely_changepoint_location = self.Qr.ps[i].tau
+            i = np.argmax([p.get_max(self.cs) - 0.0 for p in self.qr.ps[:-1]])
+            most_likely_changepoint_location = self.qr.ps[i].tau
         return {"stopping_time": self.cs.n,"changepoint": most_likely_changepoint_location}
         
     def update(self, y):
 
         # updating the cusums and count with the new point
         self.cs.n += 1
-        self.cs.Sn += y
+        self.cs.sn += y
 
         # updating the value of the max of the null (for pre-change mean unkown)
-        m0 = self.Qr.ps[0].get_max(self.cs)
+        m0 = self.qr.ps[0].get_max(self.cs)
 
         # pruning step
-        Focus._prune(self.Qr, self.cs, "right")  # true for the right pruning
-        Focus._prune(self.Ql, self.cs, "left")  # false for the left pruning
+        Focus._prune(self.qr, self.cs, "right")  # true for the right pruning
+        Focus._prune(self.ql, self.cs, "left")  # false for the left pruning
 
         # check the maximum
-        self.Qr.opt = Focus._get_max_all(self.Qr, self.cs, m0)
-        self.Ql.opt = Focus._get_max_all(self.Ql, self.cs, m0)
+        self.qr.opt = Focus._get_max_all(self.qr, self.cs, m0)
+        self.ql.opt = Focus._get_max_all(self.ql, self.cs, m0)
 
         # add a new point
-        self.Qr.ps.append(self.family(self.cs.Sn, self.cs.n, m0))
-        self.Ql.ps.append(self.family(self.cs.Sn, self.cs.n, m0))
+        self.qr.ps.append(self.family(self.cs.sn, self.cs.n, m0))
+        self.ql.ps.append(self.family(self.cs.sn, self.cs.n, m0))
 
     class _Cost:
         def __init__(self, ps, opt=0):
             self.ps = ps  # a list containing the various pieces
             self.opt = opt  # the global optimum value for ease of access
     class _CUSUM:
-        def __init__(self, Sn=0, n=0):
-            self.Sn = Sn
+        def __init__(self, sn=0, n=0):
+            self.sn = sn
             self.n = n
 
-    def _prune(Q, cs, side="right"):
-        i = len(Q.ps)
+    def _prune(q, cs, side="right"):
+        i = len(q.ps)
         if i <= 1:
-            return Q
+            return q
         if side == "right":
             def cond(q1, q2):
                 return q1.argmax(cs) <= q2.argmax(cs)
         elif side == "left":
             def cond(q1, q2):
                 return q1.argmax(cs) >= q2.argmax(cs)
-        while cond(Q.ps[i - 1], Q.ps[i - 2]):
+        while cond(q.ps[i - 1], q.ps[i - 2]):
             i -= 1
             if i == 1:
                 break
-        Q.ps = Q.ps[:i]
-        return Q
+        q.ps = q.ps[:i]
+        return q
     
-    def _get_max_all(Q, cs, m0):
-        return max(p.get_max(cs) - m0 for p in Q.ps)
+    def _get_max_all(q, cs, m0):
+        return max(p.get_max(cs) - m0 for p in q.ps)
 
     
