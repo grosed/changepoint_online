@@ -98,15 +98,10 @@ class AR1Class(Family):
 
 def AR1(phi) : return lambda st,tau,m0 : AR1Class(st,tau,m0,phi)
     
-import numpy as np
-
-
 
 ################################
 ##########   FOCUS   ##########
 ################################
-
-
 
 
 class Focus:
