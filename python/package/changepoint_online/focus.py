@@ -105,23 +105,23 @@ def AR1(phi) : return lambda st,tau,m0 : AR1Class(st,tau,m0,phi)
 
 
 class Focus:
-    def __init__(self, family):
-
+    def __init__(self, family) :
         self.cs = Focus._CUSUM()
         self.ql = Focus._Cost(ps = [family(0.0, 0, 0.0)])
         self.qr = Focus._Cost(ps = [family(0.0, 0, 0.0)])
         self.family = family
 
-
     def threshold(self) :
         return max(self.ql.opt, self.qr.opt)
 
     def changepoint(self) :
+        def _argmax(x) :
+            return max(zip(x,range(len(x))))[1]
         if self.ql.opt > self.qr.opt:
-            i = np.argmax([p.get_max(self.cs) - 0.0 for p in self.ql.ps[:-1]])
+            i = _argmax([p.get_max(self.cs) - 0.0 for p in self.ql.ps[:-1]])
             most_likely_changepoint_location = self.ql.ps[i].tau
         else:
-            i = np.argmax([p.get_max(self.cs) - 0.0 for p in self.qr.ps[:-1]])
+            i = _argmax([p.get_max(self.cs) - 0.0 for p in self.qr.ps[:-1]])
             most_likely_changepoint_location = self.qr.ps[i].tau
         return {"stopping_time": self.cs.n,"changepoint": most_likely_changepoint_location}
         
