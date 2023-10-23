@@ -1,4 +1,4 @@
-# <u> changepoint_nline </u> - A Collection of Methods for Online Changepoint Detection  </u>
+# <u> changepoint_online </u> - A Collection of Methods for Online Changepoint Detection  </u>
 
 ## Installing the changepoint_online python package
 
