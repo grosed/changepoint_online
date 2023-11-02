@@ -106,6 +106,19 @@ def AR1(phi) : return lambda st,tau,m0 : AR1Class(st,tau,m0,phi)
 
 
 class Focus:
+    """
+    The Focus class implements the FOCuS method, from REF, which is used for online changepoint detection.
+
+    Usage:
+    ```python
+    detector = Focus(Gaussian)
+    threshold = 10.0
+    for y in Y:
+        detector.update(y)
+        if detector.threshold() >= threshold:
+            break
+    ```
+    """
     def __init__(self, family) :
         self.cs = Focus._CUSUM()
         self.ql = Focus._Cost(ps = [family(0.0, 0, 0.0)])
