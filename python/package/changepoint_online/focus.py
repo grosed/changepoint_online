@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Gaetano Romano
+# Copyright (C) 2023 Gaetano Romano, Dan Grose
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -80,6 +80,7 @@ class GammaClass(Family):
 
 def Gamma(shape) : return lambda st,tau,m0 : GammaClass(st,tau,m0,shape)
 
+def Exponential() : return lambda st,tau,m0 : GammaClass(st,tau,m0,1)
     
 class AR1Class(Family):
     def __init__(self, st, tau, m0, phi):
