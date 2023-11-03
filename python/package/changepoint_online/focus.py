@@ -16,11 +16,11 @@
 import math,sys
 
 
-##############
+################
 ##  Families  ##
-##############
+################
 
-class Family:
+class CompFunc:
     def __init__(self, st, tau, m0):
         self.st = st  # sum of the data from 1 to tau
         self.tau = tau  # tau, point at which one piece was introduced
@@ -33,13 +33,13 @@ class Family:
         return self.eval(self.argmax(cs), cs)
 
 
-class Guassian(Family):
+class Guassian(CompFunc):
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
         return -0.5 * c * x ** 2 + s * x + self.m0
     
-class Bernoulli(Family):
+class Bernoulli(CompFunc):
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
@@ -54,7 +54,7 @@ class Bernoulli(Family):
         else:
             return agm
 
-class Poisson(Family):
+class Poisson(CompFunc):
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
@@ -65,7 +65,7 @@ class Poisson(Family):
         return agm if agm != 0 else sys.float_info.min
 
 
-class GammaClass(Family):
+class GammaClass(CompFunc):
     def __init__(self, st, tau, m0, shape):
         super().__init__(st, tau, m0)
         self.shape = shape
@@ -82,7 +82,7 @@ def Gamma(shape) : return lambda st,tau,m0 : GammaClass(st,tau,m0,shape)
 
 def Exponential() : return lambda st,tau,m0 : GammaClass(st,tau,m0,1)
     
-class AR1Class(Family):
+class AR1Class(CompFunc):
     def __init__(self, st, tau, m0, phi):
         super().__init__(st, tau, m0)
         self.phi = phi
@@ -101,34 +101,120 @@ def AR1(phi) : return lambda st,tau,m0 : AR1Class(st,tau,m0,phi)
     
 
 ################################
-##########   FOCUS   ##########
+##########   FOCUS   ###########
 ################################
 
 
 class Focus:
     """
-    The Focus class implements the FOCuS method, from REF, which is used for online changepoint detection.
+    The Focus class implements the FOCuS method, an algorithm for detecting changes in data streams on one-parameter exponential family models.
+    For instance, FOCuS can detect changes-in-mean in a Gaussian data stream (white noise). 
+    It can be applied to settings where either the pre-change parameter is known or unknown.
+        
+    FOCuS solves the CUSUM likelihood-ratio test exactly in O(log(n)) time per iteration, where n is the current iteration. 
+    The method is equivalent to running a rolling window (MOSUM) simultaneously for all sizes of window, or the Page-CUSUM for all possible values
+    of the size of change (an infinitely dense grid). 
 
-    Usage:
+    DISCLAIMER: Albeit the FOCuS algorithm decreases the per-iteration cost from O(n) to O(log(n)), this 
+    implementation is not technically online as for n->infty this code would inherently overflow. 
+    True online implementations are described in the references below.
+
+    References
+    ----------
+    Fast online changepoint detection via functional pruning CUSUM statistics
+        G Romano, IA Eckley, P Fearnhead, G Rigaill - Journal of Machine Learning Research, 2023
+    A Constant-per-Iteration Likelihood Ratio Test for Online Changepoint Detection for Exponential Family Models
+        K Ward, G Romano, I Eckley, P Fearnhead - arXiv preprint arXiv:2302.04743, 2023
+
+            
+    Examples
+    --------
     ```python
+
+    ### Simple gaussian change in mean case ###
+    import numpy as np
+    
+    np.random.seed(0)
+    Y = np.concatenate((np.random.normal(loc=0.0, scale=1.0, size=5000), np.random.normal(loc=10.0, scale=1.0, size=5000)))
+
     detector = Focus(Gaussian)
     threshold = 10.0
     for y in Y:
         detector.update(y)
-        if detector.threshold() >= threshold:
+        if detector.statistics() >= threshold:
             break
     ```
-    """
-    def __init__(self, family) :
-        self.cs = Focus._CUSUM()
-        self.ql = Focus._Cost(ps = [family(0.0, 0, 0.0)])
-        self.qr = Focus._Cost(ps = [family(0.0, 0, 0.0)])
-        self.family = family
 
-    def threshold(self) :
+    Attributes
+    ----------
+    cs: 
+        An instance of the `_CUSUM` class that keeps track of the cumulative sum and count.
+    ql: 
+        An instance of the `_Cost` class, that keeps track of the cost function on the left side of the pre-change parameter.
+    qr: 
+        An instance of the `_Cost` class, that keeps track of the cost function on the right side of the pre-change parameter.
+    comp_func: 
+        The constructor for the component function given a specific distribution (e.g. Gaussian).
+
+    """
+
+    def __init__(self, comp_func) :
+        """
+        Focus(comp_func)
+
+        Initializes the Focus detector.
+
+        Parameters
+        ----------
+        comp_func: A constructor for the component function given an exponential family model to use for the change detection.
+                Currently implemented: Gaussian, Bernoulli, Poisson, GammaClass, or AR1Class.
+                For more details, check help(comp_func).
+
+        Returns
+        -------
+        Focus:
+            An instance of class Focus, our changepoint detector.
+
+
+        """
+        self.cs = Focus._CUSUM()
+        self.ql = Focus._Cost(ps = [comp_func(0.0, 0, 0.0)])
+        self.qr = Focus._Cost(ps = [comp_func(0.0, 0, 0.0)])
+        self.comp_func = comp_func
+
+    def statistics(self) :
+        """
+        statistics()
+
+        Computes the value of the CUSUM test statistics at the current iteration.
+
+        Parameters
+        ----------
+        Null
+
+        Returns
+        -------
+        float:
+            The value of the CUSUM test statistics at the current iteration.
+        """
         return max(self.ql.opt, self.qr.opt)
 
     def changepoint(self) :
+        """
+        changepoint()
+
+        Returns the most likely changepoint location.
+        
+
+        Parameters
+        -----
+        Null
+
+        Returns
+        -------
+        dict:
+            A dictionary containing the stopping time and the most likely changepoint location.
+        """
         def _argmax(x) :
             return max(zip(x,range(len(x))))[1]
         if self.ql.opt > self.qr.opt:
@@ -140,7 +226,19 @@ class Focus:
         return {"stopping_time": self.cs.n,"changepoint": most_likely_changepoint_location}
         
     def update(self, y):
+        """
+        update(y)
 
+        Updates the FOCuS statistics with a new observation (data point).
+
+        Parameters
+        -----
+        y: The new data point, either a single integer or a double.
+
+        Returns
+        -------
+        None
+        """
         # updating the cusums and count with the new point
         self.cs.n += 1
         self.cs.sn += y
@@ -157,8 +255,8 @@ class Focus:
         self.ql.opt = Focus._get_max_all(self.ql, self.cs, m0)
 
         # add a new point
-        self.qr.ps.append(self.family(self.cs.sn, self.cs.n, m0))
-        self.ql.ps.append(self.family(self.cs.sn, self.cs.n, m0))
+        self.qr.ps.append(self.comp_func(self.cs.sn, self.cs.n, m0))
+        self.ql.ps.append(self.comp_func(self.cs.sn, self.cs.n, m0))
 
     class _Cost:
         def __init__(self, ps, opt=0):
