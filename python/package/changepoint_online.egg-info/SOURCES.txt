@@ -1,9 +1,0 @@
-LICENSE
-README.md
-pyproject.toml
-changepoint_online/__init__.py
-changepoint_online/focus.py
-changepoint_online.egg-info/PKG-INFO
-changepoint_online.egg-info/SOURCES.txt
-changepoint_online.egg-info/dependency_links.txt
-changepoint_online.egg-info/top_level.txt
