@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: changepoint-online
+Version: 0.0.1
+Summary: A Collection of Methods for Online Changepoint Detection
+Author-email: Daniel Grose <dan.grose@lancaster.ac.uk>
+Project-URL: Homepage, https://github.com/grosed/changepoint.online
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GPL-3.0-only
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# changepoint_online
+
+A Collection of Methods for Online Changepoint Detection
+
