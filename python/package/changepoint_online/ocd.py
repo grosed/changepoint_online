@@ -100,8 +100,6 @@ class ocd_mwu :
         if len(self.X) > 1 :
             pl = 2.0*norm.sf(self.L.asymptotic_z())
             pr = 2.0*norm.sf(self.R.asymptotic_z())
-            print(pl)
-            print(pr)
             self.z = log(pl) + log(pr)
         else :
             self.z = None
