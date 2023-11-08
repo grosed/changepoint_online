@@ -21,10 +21,12 @@ import math,sys
 ################
 
 class CompFunc:
-    def __init__(self, st, tau, m0):
+    def __init__(self, st, tau, m0, theta0):
         self.st = st  # sum of the data from 1 to tau
         self.tau = tau  # tau, point at which one piece was introduced
         self.m0 = m0
+        self.theta0 = theta0
+
 
     def argmax(self, cs):
         return (cs.sn - self.st) / (cs.n - self.tau)
@@ -33,18 +35,29 @@ class CompFunc:
         return self.eval(self.argmax(cs), cs)
 
 
-class Guassian(CompFunc):
+class GaussianClass(CompFunc):
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
-        return -0.5 * c * x ** 2 + s * x + self.m0
-    
-class Bernoulli(CompFunc):
-    def eval(self, x, cs):
-        c = cs.n - self.tau
-        s = cs.sn - self.st
-        return S * math.log(x) + (c - s) * math.log(1 - x) + self.m0
 
+        if self.theta0 is None:
+            return -0.5 * c * x ** 2 + s * x + self.m0
+        else:
+            out = c * x ** 2 - 2 * s * x - (c * self.theta0 ** 2 - 2 * s * self.theta0)
+            return -out / 2
+        
+def Gaussian(theta0=None) : return lambda st, tau, m0 : GaussianClass(st, tau, m0, theta0)
+
+    
+class BernoulliClass(CompFunc):
+    def eval(self, x, cs):
+        c = cs.n - self.tau
+        s = cs.sn - self.st
+        if self.theta0 is None:
+            return s * math.log(x) + (c - s) * math.log(1 - x) + self.m0
+        else:
+            return s * math.log(x / self.theta0) + (c - s) * math.log((1 - x) / (1 - self.theta0))
+        
     def argmax(self, cs):
         agm = (cs.sn - self.st) / (cs.n - self.tau)
         if agm == 0:
@@ -53,52 +66,46 @@ class Bernoulli(CompFunc):
             return 1 - sys.float_info.min
         else:
             return agm
+        
+def Bernoulli(theta0=None) : return lambda st, tau, m0 : BernoulliClass(st, tau, m0, theta0)
 
-class Poisson(CompFunc):
+
+class PoissonClass(CompFunc):
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
-        return -c * x + s * math.log(x) + self.m0
-
+        if self.theta0 is None:
+            return -c * x + s * math.log(x) + self.m0
+        else:
+            return -c * (x - self.theta0) + s * math.log(x / self.theta0)
+        
     def argmax(self, cs):
         agm = (cs.sn - self.st) / (cs.n - self.tau)
         return agm if agm != 0 else sys.float_info.min
 
+def Poisson(theta0=None) : return lambda st, tau, m0 : PoissonClass(st, tau, m0, theta0)
+
 
 class GammaClass(CompFunc):
-    def __init__(self, st, tau, m0, shape):
-        super().__init__(st, tau, m0)
+    def __init__(self, st, tau, m0, theta0, shape):
+        super().__init__(st, tau, m0, theta0)
         self.shape = shape
 
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
-        return -c * self.shape * math.log(x) - s * (1 / x) + self.m0
-
+        if self.theta0 is None:
+            return -c * self.shape * math.log(x) - s * (1 / x) + self.m0
+        else:
+            return c * self.shape * math.log(self.theta0 / x) - s * (1 / x - 1 / self.theta0)
+        
     def argmax(self, cs):
         return (cs.sn - self.st) / (self.shape * (cs.n - self.tau))
 
-def Gamma(shape) : return lambda st,tau,m0 : GammaClass(st,tau,m0,shape)
+def Gamma(theta0=None, shape=1) : return lambda st,tau,m0 : GammaClass(st, tau, m0, theta0, shape)
 
-def Exponential() : return lambda st,tau,m0 : GammaClass(st,tau,m0,1)
-    
-class AR1Class(CompFunc):
-    def __init__(self, st, tau, m0, phi):
-        super().__init__(st, tau, m0)
-        self.phi = phi
+def Exponential(theta0=None) : return Gamma(theta0=theta0, shape=1)
 
-    def eval(self, x, cs):
-        c = (cs.n - self.tau) * (1 - self.phi) ** 2
-        s = (cs.sn - self.st) * (1 - self.phi)
-        out = c * x ** 2 - 2 * s * x + (1 - self.phi) * self.m0
-        return -out
-
-    def argmax(self, cs):
-        return (cs.sn - self.st) / ((cs.n - self.tau) * (1 - self.phi))
-
-
-def AR1(phi) : return lambda st,tau,m0 : AR1Class(st,tau,m0,phi)
-    
 
 ################################
 ##########   FOCUS   ###########
@@ -141,7 +148,7 @@ class Focus:
     threshold = 10.0
     for y in Y:
         detector.update(y)
-        if detector.statistics() >= threshold:
+        if detector.statistic() >= threshold:
             break
     ```
 
@@ -182,9 +189,9 @@ class Focus:
         self.qr = Focus._Cost(ps = [comp_func(0.0, 0, 0.0)])
         self.comp_func = comp_func
 
-    def statistics(self) :
+    def statistic(self) :
         """
-        statistics()
+        statistic()
 
         Computes the value of the CUSUM test statistics at the current iteration.
 
@@ -244,7 +251,9 @@ class Focus:
         self.cs.sn += y
 
         # updating the value of the max of the null (for pre-change mean unkown)
-        m0 = self.qr.ps[0].get_max(self.cs)
+        m0 = 0
+        if self.qr.ps[0].theta0 is None:
+            m0 = self.qr.ps[0].get_max(self.cs)
 
         # pruning step
         Focus._prune(self.qr, self.cs, "right")  # true for the right pruning
