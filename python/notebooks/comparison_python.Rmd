@@ -1,0 +1,165 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Comparison of Rcpp and python implementation.
+
+This requires exfocus installed from this repo: <https://github.com/gtromano/exfocus/tree/main>
+
+```{r}
+library(reticulate)
+use_python("../.venv/bin/python")
+```
+
+## Importing the libraries
+
+```{python}
+from changepoint_online import *
+import numpy as np
+```
+
+```{r}
+library(exfocus)
+```
+
+## generating data examples
+
+### gaussian
+
+```{r}
+theta0 <- 2
+set.seed(42)
+Y <- c(rnorm(200, theta0), rnorm(200, theta0 + .2))
+```
+
+Pre-change mean unknown
+
+```{r}
+res_r <- exfocus(Y, Inf, family = "gaussian")
+```
+
+```{python}
+detector = Focus(Gaussian())
+res_py = []
+for y in r.Y:
+    detector.update(y)
+    res_py.append(detector.statistic())
+```
+
+```{r}
+(py$res_py - res_r$stat)[1:10]
+```
+
+Pre-change mean known
+
+```{r}
+res_r <- exfocus(Y, Inf, family = "gaussian", theta0 = theta0)
+```
+
+```{python}
+detector = Focus(Gaussian(theta0=r.theta0))
+res_py = []
+for y in r.Y:
+    detector.update(y)
+    res_py.append(detector.statistic())
+```
+
+```{r}
+cbind(py$res_py, res_r$stat)[1:10,]
+```
+
+### Poisson
+
+Pre-change mean unkown
+```{r}
+theta0 <- 1
+set.seed(42)
+Y <- c(rpois(200, theta0), rpois(200, 1.5))
+```
+
+Pre-change mean unknown
+
+```{r}
+res_r <- exfocus(Y, Inf, family = "poisson")
+```
+
+```{python}
+detector = Focus(Poisson())
+res_py = []
+for y in r.Y:
+    detector.update(y)
+    res_py.append(detector.statistic())
+```
+
+```{r}
+cbind(py$res_py, res_r$stat)[1:10, ]
+```
+
+Pre-change mean known
+
+```{r}
+res_r <- exfocus(Y, Inf, family = "poisson", theta0 = theta0)
+```
+
+```{python}
+detector = Focus(Poisson(theta0=r.theta0))
+res_py = []
+for y in r.Y:
+    detector.update(y)
+    res_py.append(detector.statistic())
+```
+
+```{r}
+cbind(py$res_py, res_r$stat)[1:10, ]
+```
+
+### Gamma
+```{r}
+theta0 <- 4
+shape <- 1
+set.seed(42)
+Y <- c(rgamma(200, rate = theta0, shape = shape), rgamma(200, rate = theta0 + 1, shape = shape))
+```
+
+Pre-change mean uknown
+
+```{r}
+res_r <- exfocus(Y, Inf, family = "gamma", args = list(shape = shape))
+```
+
+
+```{python}
+# testing call to gamma
+detector = Focus(Gamma(shape=r.shape))
+res_py = []
+for y in r.Y:
+    detector.update(y)
+    res_py.append(detector.statistic())
+```
+
+```{r}
+cbind(py$res_py, res_r$stat)[1:10, ]
+```
+
+Pre-change mean known
+
+```{r}
+res_r <- exfocus(Y, Inf, family = "gamma", args = list(shape = shape), theta0 = theta0)
+```
+
+```{python}
+detector = Focus(Gamma(theta0=r.theta0, shape=r.shape))
+res_py = []
+for y in r.Y:
+    detector.update(y)
+    res_py.append(detector.statistic())
+```
+
+```{r}
+cbind(py$res_py, res_r$stat)[1:10, ]
+```
+```{python}
+detector.ql.ps[10].theta0
+```
+
