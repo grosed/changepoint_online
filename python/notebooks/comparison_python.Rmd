@@ -145,11 +145,11 @@ cbind(py$res_py, res_r$stat)[1:10, ]
 Pre-change mean known
 
 ```{r}
-res_r <- exfocus(Y, Inf, family = "gamma", args = list(shape = shape), theta0 = theta0)
+res_r <- exfocus(Y, Inf, family = "gamma2", args = list(shape = shape), theta0 = 1/theta0)
 ```
 
 ```{python}
-detector = Focus(Gamma(theta0=r.theta0, shape=r.shape))
+detector = Focus(Gamma(theta0=1/r.theta0, shape=r.shape))
 res_py = []
 for y in r.Y:
     detector.update(y)
