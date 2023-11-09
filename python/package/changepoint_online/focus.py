@@ -22,10 +22,10 @@ import math,sys
 
 class CompFunc:
     """
-    This class represents a component function of the FOCuS optimization cost.
+    This class represents a component function of the Focus optimization cost.
     Each component function is associated with a given split (candidate changepoint) 
     of the sequential GLR test.
-    For more details about FOCuS, see References in `help(Focus)`.
+    For more details about Focus, see References in `help(Focus)`.
 
     Attributes
     ----------
@@ -86,7 +86,7 @@ class GaussianClass(CompFunc):
         
 def Gaussian(loc=None):
     """
-    This function returns a lambda function that creates an instance of the GaussianClass, for 
+    This function returns a function that creates an instance of the GaussianClass, for 
     Gaussian change-in-mean.
 
     Parameters
@@ -95,7 +95,7 @@ def Gaussian(loc=None):
 
     Returns
     -------
-    function: A lambda function that takes three arguments (st, tau, m0) and returns an instance of GaussianClass.
+    function: A function that takes three arguments (st, tau, m0) and returns an instance of GaussianClass.
     """
     return lambda st, tau, m0: GaussianClass(st, tau, m0, loc)
     
@@ -119,7 +119,7 @@ class BernoulliClass(CompFunc):
         
 def Bernoulli(p=None):
     """
-    This function returns a lambda function that creates an instance of the BernoulliClass, for 
+    This function returns a function that creates an instance of the BernoulliClass, for 
     Bernoulli change-in-probability.
 
     Parameters
@@ -128,7 +128,7 @@ def Bernoulli(p=None):
 
     Returns
     -------
-    function: A lambda function that takes three arguments (st, tau, m0) and returns an instance of BernoulliClass.
+    function: A function that takes three arguments (st, tau, m0) and returns an instance of BernoulliClass.
     """
     return lambda st, tau, m0 : BernoulliClass(st, tau, m0, p)
 
@@ -148,7 +148,7 @@ class PoissonClass(CompFunc):
 
 def Poisson(lam=None):
     """
-    This function returns a lambda function that creates an instance of the PoissonClass, for 
+    This function returns a function that creates an instance of the PoissonClass, for 
     Poisson change-in-rate.
 
     Parameters
@@ -157,7 +157,7 @@ def Poisson(lam=None):
 
     Returns
     -------
-    function: A lambda function that takes three arguments (st, tau, m0) and returns an instance of PoissonClass.
+    function: A function that takes three arguments (st, tau, m0) and returns an instance of PoissonClass.
     """
     return lambda st, tau, m0 : PoissonClass(st, tau, m0, lam)
 
@@ -179,7 +179,7 @@ class GammaClass(CompFunc):
 
 def Gamma(rate=None, scale=None, shape=1):
     """
-    This function returns a lambda function that creates an instance of the GammaClass, for 
+    This function returns a function that creates an instance of the GammaClass, for 
     Gamma change-in-rate or change-in-scale.
 
     Parameters:
@@ -188,7 +188,7 @@ def Gamma(rate=None, scale=None, shape=1):
     shape (float): The shape parameter for the Gamma distribution. Default is 1 for Exponential change-in-rate.
 
     Returns:
-    function: A lambda function that takes three arguments (st, tau, m0) and returns an instance of GammaClass.
+    function: a function that takes three arguments (st, tau, m0) and returns an instance of GammaClass.
     """
     if rate is not None:
         if scale is not None:
@@ -221,15 +221,15 @@ def Exponential(rate=None):
 
 class Focus:
     """
-    The Focus class implements the FOCuS method, an algorithm for detecting changes in data streams on one-parameter exponential family models.
-    For instance, FOCuS can detect changes-in-mean in a Gaussian data stream (white noise). 
+    The Focus class implements the Focus method, an algorithm for detecting changes in data streams on one-parameter exponential family models.
+    For instance, Focus can detect changes-in-mean in a Gaussian data stream (white noise). 
     It can be applied to settings where either the pre-change parameter is known or unknown.
         
-    FOCuS solves the CUSUM likelihood-ratio test exactly in O(log(n)) time per iteration, where n is the current iteration. 
+    Focus solves the CUSUM likelihood-ratio test exactly in O(log(n)) time per iteration, where n is the current iteration. 
     The method is equivalent to running a rolling window (MOSUM) simultaneously for all sizes of window, or the Page-CUSUM for all possible values
     of the size of change (an infinitely dense grid). 
 
-    DISCLAIMER: Albeit the FOCuS algorithm decreases the per-iteration cost from O(n) to O(log(n)), this 
+    DISCLAIMER: Albeit the Focus algorithm decreases the per-iteration cost from O(n) to O(log(n)), this 
     implementation is not technically online as for n->infty this code would inherently overflow. 
     True online implementations are described in the references below.
 
@@ -358,7 +358,7 @@ class Focus:
         """
         update(y)
 
-        Updates the FOCuS statistics with a new observation (data point).
+        Updates the Focus statistics with a new observation (data point).
 
         Parameters
         -----
