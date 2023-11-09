@@ -16,35 +16,98 @@
 import math,sys
 
 
-##############
+################
 ##  Families  ##
-##############
+################
 
-class Family:
-    def __init__(self, st, tau, m0):
-        self.st = st  # sum of the data from 1 to tau
-        self.tau = tau  # tau, point at which one piece was introduced
+class CompFunc:
+    """
+    This class represents a component function of the Focus optimization cost.
+    Each component function is associated with a given split (candidate changepoint) 
+    of the sequential GLR test.
+    For more details about Focus, see References in `help(Focus)`.
+
+    Attributes
+    ----------
+    st (float): Sum of the data from 1 to tau.
+    tau (float): Tau, point at which one piece was introduced.
+    m0 (float): The m0 value, e.g. the max of the evidence for no-change when the component function was introduced.
+    theta0 (float): The true pre-change parameter, in case this is known.
+    """
+    def __init__(self, st, tau, m0, theta0):
+        self.st = st
+        self.tau = tau
         self.m0 = m0
+        self.theta0 = theta0
+
 
     def argmax(self, cs):
+        """
+        This method computes the argmax of component function.
+
+        Parameters
+        ----------
+        cs (CompFunc): An instance of the _CUSUM class.
+
+        Returns
+        -------
+        float: The value of the argmax of the component function at the given point.
+        """
         return (cs.sn - self.st) / (cs.n - self.tau)
 
     def get_max(self, cs):
+        """
+        This method computes the max of component function.
+
+        Parameters
+        ----------
+        cs (CompFunc): An instance of the _CUSUM class.
+
+        Returns
+        -------
+        float: The value of the max of the component function at the given point.
+        """
         return self.eval(self.argmax(cs), cs)
 
 
-class Guassian(Family):
+class GaussianClass(CompFunc):
+    """
+    This function represents a Gaussian component function. For more details, see `help(CompFunc)`.
+    """
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
-        return -0.5 * c * x ** 2 + s * x + self.m0
-    
-class Bernoulli(Family):
-    def eval(self, x, cs):
-        c = cs.n - self.tau
-        s = cs.sn - self.st
-        return s * math.log(x) + (c - s) * math.log(1 - x) + self.m0
 
+        if self.theta0 is None:
+            return -0.5 * c * x ** 2 + s * x + self.m0
+        else:
+            out = c * x ** 2 - 2 * s * x - (c * self.theta0 ** 2 - 2 * s * self.theta0)
+            return -out / 2
+        
+def Gaussian(loc=None):
+    """
+    This function returns a function that creates an instance of the GaussianClass, for 
+    Gaussian change-in-mean.
+
+    Parameters
+    ----------
+    loc (float): The pre-change location (mean) parameter, if known. Defaults to None for pre-change mean unkown.
+
+    Returns
+    -------
+    function: A function that takes three arguments (st, tau, m0) and returns an instance of GaussianClass.
+    """
+    return lambda st, tau, m0: GaussianClass(st, tau, m0, loc)
+    
+class BernoulliClass(CompFunc):
+    def eval(self, x, cs):
+        c = cs.n - self.tau
+        s = cs.sn - self.st
+        if self.theta0 is None:
+            return s * math.log(x) + (c - s) * math.log(1 - x) + self.m0
+        else:
+            return s * math.log(x / self.theta0) + (c - s) * math.log((1 - x) / (1 - self.theta0))
+        
     def argmax(self, cs):
         agm = (cs.sn - self.st) / (cs.n - self.tau)
         if agm == 0:
@@ -53,82 +116,234 @@ class Bernoulli(Family):
             return 1 - sys.float_info.min
         else:
             return agm
+        
+def Bernoulli(p=None):
+    """
+    This function returns a function that creates an instance of the BernoulliClass, for 
+    Bernoulli change-in-probability.
 
-class Poisson(Family):
+    Parameters
+    ----------
+    loc (float): The pre-change success probability parameter, if known. Defaults to None for pre-change success probability unkown.
+
+    Returns
+    -------
+    function: A function that takes three arguments (st, tau, m0) and returns an instance of BernoulliClass.
+    """
+    return lambda st, tau, m0 : BernoulliClass(st, tau, m0, p)
+
+
+class PoissonClass(CompFunc):
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
-        return -c * x + s * math.log(x) + self.m0
-
+        if self.theta0 is None:
+            return -c * x + s * math.log(x) + self.m0
+        else:
+            return -c * (x - self.theta0) + s * math.log(x / self.theta0)
+        
     def argmax(self, cs):
         agm = (cs.sn - self.st) / (cs.n - self.tau)
         return agm if agm != 0 else sys.float_info.min
 
+def Poisson(lam=None):
+    """
+    This function returns a function that creates an instance of the PoissonClass, for 
+    Poisson change-in-rate.
 
-class GammaClass(Family):
-    def __init__(self, st, tau, m0, shape):
-        super().__init__(st, tau, m0)
+    Parameters
+    ----------
+    lam (float): The pre-change rate parameter, if known. Defaults to None for pre-change rate unknown.
+
+    Returns
+    -------
+    function: A function that takes three arguments (st, tau, m0) and returns an instance of PoissonClass.
+    """
+    return lambda st, tau, m0 : PoissonClass(st, tau, m0, lam)
+
+class GammaClass(CompFunc):
+    def __init__(self, st, tau, m0, theta0, shape):
+        super().__init__(st, tau, m0, theta0)
         self.shape = shape
 
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
-        return -c * self.shape * math.log(x) - s * (1 / x) + self.m0
-
+        if self.theta0 is None:
+            return -c * self.shape * math.log(x) - s * (1 / x) + self.m0
+        else:
+            return c * self.shape * math.log(self.theta0 / x) - s * (1 / x - 1 / self.theta0)
+        
     def argmax(self, cs):
         return (cs.sn - self.st) / (self.shape * (cs.n - self.tau))
 
-def Gamma(shape) : return lambda st,tau,m0 : GammaClass(st,tau,m0,shape)
+def Gamma(rate=None, scale=None, shape=1):
+    """
+    This function returns a function that creates an instance of the GammaClass, for 
+    Gamma change-in-rate or change-in-scale.
 
-def Exponential() : return lambda st,tau,m0 : GammaClass(st,tau,m0,1)
-    
-class AR1Class(Family):
-    def __init__(self, st, tau, m0, phi):
-        super().__init__(st, tau, m0)
-        self.phi = phi
+    Parameters:
+    rate (float): The pre-change rate parameter, if known. Defaults to None for pre-change rate unkown (when scale is not provided). 
+    scale (float): The pre-change scale parameter, if known. Defaults to None for pre-change scale unkown (when rate is not provided)
+    shape (float): The shape parameter for the Gamma distribution. Default is 1 for Exponential change-in-rate.
 
-    def eval(self, x, cs):
-        c = (cs.n - self.tau) * (1 - self.phi) ** 2
-        s = (cs.sn - self.st) * (1 - self.phi)
-        out = c * x ** 2 - 2 * s * x + (1 - self.phi) * self.m0
-        return -out
+    Returns:
+    function: a function that takes three arguments (st, tau, m0) and returns an instance of GammaClass.
+    """
+    if rate is not None:
+        if scale is not None:
+            raise ValueError("You can only provide either 'rate' or 'scale', not both.")
+        else:
+            scale = 1 / rate
 
-    def argmax(self, cs):
-        return (cs.sn - self.st) / ((cs.n - self.tau) * (1 - self.phi))
+    return lambda st, tau, m0: GammaClass(st, tau, m0, scale, shape)
 
+def Exponential(rate=None):
+    """
+    This function returns an instance of the GammaClass with shape parameter 1, for 
+    Exponential change-in-rate.
 
-def AR1(phi) : return lambda st,tau,m0 : AR1Class(st,tau,m0,phi)
-    
+    Parameters
+    ----------
+    theta0 (float): The pre-change rate parameter, if known. Defaults to None for pre-change rate unknown.
+
+    Returns
+    -------
+    instance: An instance of GammaClass with shape parameter 1.
+    """
+    return Gamma(rate=rate, shape=1)
+
 
 ################################
-##########   FOCUS   ##########
+##########   FOCUS   ###########
 ################################
 
 
 class Focus:
     """
-    The Focus class implements the FOCuS method, from REF, which is used for online changepoint detection.
+    The Focus class implements the Focus method, an algorithm for detecting changes in data streams on one-parameter exponential family models.
+    For instance, Focus can detect changes-in-mean in a Gaussian data stream (white noise). 
+    It can be applied to settings where either the pre-change parameter is known or unknown.
+        
+    Focus solves the CUSUM likelihood-ratio test exactly in O(log(n)) time per iteration, where n is the current iteration. 
+    The method is equivalent to running a rolling window (MOSUM) simultaneously for all sizes of window, or the Page-CUSUM for all possible values
+    of the size of change (an infinitely dense grid). 
 
-    Usage:
+    DISCLAIMER: Albeit the Focus algorithm decreases the per-iteration cost from O(n) to O(log(n)), this 
+    implementation is not technically online as for n->infty this code would inherently overflow. 
+    True online implementations are described in the references below.
+
+    References
+    ----------
+    Fast online changepoint detection via functional pruning CUSUM statistics
+        G Romano, IA Eckley, P Fearnhead, G Rigaill - Journal of Machine Learning Research, 2023
+    A Constant-per-Iteration Likelihood Ratio Test for Online Changepoint Detection for Exponential Family Models
+        K Ward, G Romano, I Eckley, P Fearnhead - arXiv preprint arXiv:2302.04743, 2023
+
+            
+    Examples
+    --------
     ```python
-    detector = Focus(Gaussian)
+
+    ### Simple gaussian change in mean case ###
+    import numpy as np
+    
+    np.random.seed(0)
+    Y = np.concatenate((np.random.normal(loc=0.0, scale=1.0, size=5000), np.random.normal(loc=10.0, scale=1.0, size=5000)))
+
+    detector = Focus(Gaussian())
     threshold = 10.0
     for y in Y:
         detector.update(y)
-        if detector.threshold() >= threshold:
+        if detector.statistic() >= threshold:
             break
     ```
-    """
-    def __init__(self, family) :
-        self.cs = Focus._CUSUM()
-        self.ql = Focus._Cost(ps = [family(0.0, 0, 0.0)])
-        self.qr = Focus._Cost(ps = [family(0.0, 0, 0.0)])
-        self.family = family
 
-    def threshold(self) :
+    Attributes
+    ----------
+    cs: 
+        An instance of the `_CUSUM` class that keeps track of the cumulative sum and count.
+    ql: 
+        An instance of the `_Cost` class, that keeps track of the cost function on the left side of the pre-change parameter.
+    qr: 
+        An instance of the `_Cost` class, that keeps track of the cost function on the right side of the pre-change parameter.
+    comp_func: 
+        The constructor for the component function given a specific distribution (e.g. Gaussian).
+
+    """
+
+    def __init__(self, comp_func) :
+        """
+        Focus(comp_func)
+
+        Initializes the Focus detector.
+
+        Parameters
+        ----------
+        comp_func: A constructor for the component function given an exponential family model to use for the change detection.
+                Currently implemented: Gaussian(), Bernoulli(), Poisson(), Gamma() or Exponential().
+                For more details, check documentation of each component function, e.g. `help(Gaussian)`.
+
+        Returns
+        -------
+        Focus:
+            An instance of class Focus, our changepoint detector.
+
+        Examples
+        --------
+        ```python
+        ## Gaussian change in mean ##
+        # with pre-change mean uknown
+        detector = Focus(Gaussian())         
+        # with pre-change mean known (and at 0)
+        detector = Focus(Gaussian(loc=0)) 
+
+        ## Gamma change in rate ##
+        # with pre-change scale parameter unknown
+        detector = Focus(Gamma(shape=2))
+         # with pre-change scale parameter known
+        detector = Focus(Gamma(scale=0, shape=2))
+        ```
+
+        """
+        self.cs = Focus._CUSUM()
+        self.ql = Focus._Cost(ps = [comp_func(0.0, 0, 0.0)])
+        self.qr = Focus._Cost(ps = [comp_func(0.0, 0, 0.0)])
+        self.comp_func = comp_func
+
+    def statistic(self) :
+        """
+        statistic()
+
+        Computes the value of the CUSUM test statistics at the current iteration.
+
+        Parameters
+        ----------
+        Null
+
+        Returns
+        -------
+        float:
+            The value of the CUSUM test statistics at the current iteration.
+        """
         return max(self.ql.opt, self.qr.opt)
 
     def changepoint(self) :
+        """
+        changepoint()
+
+        Returns the most likely changepoint location.
+        
+
+        Parameters
+        -----
+        Null
+
+        Returns
+        -------
+        dict:
+            A dictionary containing the stopping time and the most likely changepoint location.
+        """
         def _argmax(x) :
             return max(zip(x,range(len(x))))[1]
         if self.ql.opt > self.qr.opt:
@@ -140,13 +355,27 @@ class Focus:
         return {"stopping_time": self.cs.n,"changepoint": most_likely_changepoint_location}
         
     def update(self, y):
+        """
+        update(y)
 
+        Updates the Focus statistics with a new observation (data point).
+
+        Parameters
+        -----
+        y: The new data point, either a single integer or a double.
+
+        Returns
+        -------
+        None
+        """
         # updating the cusums and count with the new point
         self.cs.n += 1
         self.cs.sn += y
 
         # updating the value of the max of the null (for pre-change mean unkown)
-        m0 = self.qr.ps[0].get_max(self.cs)
+        m0 = 0
+        if self.qr.ps[0].theta0 is None:
+            m0 = self.qr.ps[0].get_max(self.cs)
 
         # pruning step
         Focus._prune(self.qr, self.cs, "right")  # true for the right pruning
@@ -157,8 +386,8 @@ class Focus:
         self.ql.opt = Focus._get_max_all(self.ql, self.cs, m0)
 
         # add a new point
-        self.qr.ps.append(self.family(self.cs.sn, self.cs.n, m0))
-        self.ql.ps.append(self.family(self.cs.sn, self.cs.n, m0))
+        self.qr.ps.append(self.comp_func(self.cs.sn, self.cs.n, m0))
+        self.ql.ps.append(self.comp_func(self.cs.sn, self.cs.n, m0))
 
     class _Cost:
         def __init__(self, ps, opt=0):

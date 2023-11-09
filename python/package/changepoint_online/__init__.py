@@ -1,3 +1,4 @@
-from .focus import Focus, Guassian, Bernoulli, Poisson, Gamma, AR1Class
+from .focus import Focus, Gaussian, Bernoulli, Poisson, Gamma, Exponential
 from .ocd import ocd_mwu
+
 
