@@ -21,21 +21,59 @@ import math,sys
 ################
 
 class CompFunc:
+    """
+    This class represents a component function of the FOCuS optimization cost.
+    Each component function is associated with a given split (candidate changepoint) 
+    of the sequential GLR test.
+    For more details about FOCuS, see References in `help(Focus)`.
+
+    Attributes
+    ----------
+    st (float): Sum of the data from 1 to tau.
+    tau (float): Tau, point at which one piece was introduced.
+    m0 (float): The m0 value, e.g. the max of the evidence for no-change when the component function was introduced.
+    theta0 (float): The true pre-change parameter, in case this is known.
+    """
     def __init__(self, st, tau, m0, theta0):
-        self.st = st  # sum of the data from 1 to tau
-        self.tau = tau  # tau, point at which one piece was introduced
+        self.st = st
+        self.tau = tau
         self.m0 = m0
         self.theta0 = theta0
 
 
     def argmax(self, cs):
+        """
+        This method computes the argmax of component function.
+
+        Parameters
+        ----------
+        cs (CompFunc): An instance of the _CUSUM class.
+
+        Returns
+        -------
+        float: The value of the argmax of the component function at the given point.
+        """
         return (cs.sn - self.st) / (cs.n - self.tau)
 
     def get_max(self, cs):
+        """
+        This method computes the max of component function.
+
+        Parameters
+        ----------
+        cs (CompFunc): An instance of the _CUSUM class.
+
+        Returns
+        -------
+        float: The value of the max of the component function at the given point.
+        """
         return self.eval(self.argmax(cs), cs)
 
 
 class GaussianClass(CompFunc):
+    """
+    This function represents a Gaussian component function. For more details, see `help(CompFunc)`.
+    """
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
@@ -46,8 +84,20 @@ class GaussianClass(CompFunc):
             out = c * x ** 2 - 2 * s * x - (c * self.theta0 ** 2 - 2 * s * self.theta0)
             return -out / 2
         
-def Gaussian(theta0=None) : return lambda st, tau, m0 : GaussianClass(st, tau, m0, theta0)
+def Gaussian(loc=None):
+    """
+    This function returns a lambda function that creates an instance of the GaussianClass, for 
+    Gaussian change-in-mean.
 
+    Parameters
+    ----------
+    loc (float): The pre-change location (mean) parameter, if known. Defaults to None for pre-change mean unkown.
+
+    Returns
+    -------
+    function: A lambda function that takes three arguments (st, tau, m0) and returns an instance of GaussianClass.
+    """
+    return lambda st, tau, m0: GaussianClass(st, tau, m0, loc)
     
 class BernoulliClass(CompFunc):
     def eval(self, x, cs):
@@ -67,7 +117,20 @@ class BernoulliClass(CompFunc):
         else:
             return agm
         
-def Bernoulli(theta0=None) : return lambda st, tau, m0 : BernoulliClass(st, tau, m0, theta0)
+def Bernoulli(p=None):
+    """
+    This function returns a lambda function that creates an instance of the BernoulliClass, for 
+    Bernoulli change-in-probability.
+
+    Parameters
+    ----------
+    loc (float): The pre-change success probability parameter, if known. Defaults to None for pre-change success probability unkown.
+
+    Returns
+    -------
+    function: A lambda function that takes three arguments (st, tau, m0) and returns an instance of BernoulliClass.
+    """
+    return lambda st, tau, m0 : BernoulliClass(st, tau, m0, p)
 
 
 class PoissonClass(CompFunc):
@@ -83,8 +146,20 @@ class PoissonClass(CompFunc):
         agm = (cs.sn - self.st) / (cs.n - self.tau)
         return agm if agm != 0 else sys.float_info.min
 
-def Poisson(theta0=None) : return lambda st, tau, m0 : PoissonClass(st, tau, m0, theta0)
+def Poisson(lam=None):
+    """
+    This function returns a lambda function that creates an instance of the PoissonClass, for 
+    Poisson change-in-rate.
 
+    Parameters
+    ----------
+    lam (float): The pre-change rate parameter, if known. Defaults to None for pre-change rate unknown.
+
+    Returns
+    -------
+    function: A lambda function that takes three arguments (st, tau, m0) and returns an instance of PoissonClass.
+    """
+    return lambda st, tau, m0 : PoissonClass(st, tau, m0, lam)
 
 class GammaClass(CompFunc):
     def __init__(self, st, tau, m0, theta0, shape):
@@ -102,9 +177,41 @@ class GammaClass(CompFunc):
     def argmax(self, cs):
         return (cs.sn - self.st) / (self.shape * (cs.n - self.tau))
 
-def Gamma(theta0=None, shape=1) : return lambda st,tau,m0 : GammaClass(st, tau, m0, theta0, shape)
+def Gamma(rate=None, scale=None, shape=1):
+    """
+    This function returns a lambda function that creates an instance of the GammaClass, for 
+    Gamma change-in-rate or change-in-scale.
 
-def Exponential(theta0=None) : return Gamma(theta0=theta0, shape=1)
+    Parameters:
+    rate (float): The pre-change rate parameter, if known. Defaults to None for pre-change rate unkown (when scale is not provided). 
+    scale (float): The pre-change scale parameter, if known. Defaults to None for pre-change scale unkown (when rate is not provided)
+    shape (float): The shape parameter for the Gamma distribution. Default is 1 for Exponential change-in-rate.
+
+    Returns:
+    function: A lambda function that takes three arguments (st, tau, m0) and returns an instance of GammaClass.
+    """
+    if rate is not None:
+        if scale is not None:
+            raise ValueError("You can only provide either 'rate' or 'scale', not both.")
+        else:
+            scale = 1 / rate
+
+    return lambda st, tau, m0: GammaClass(st, tau, m0, scale, shape)
+
+def Exponential(rate=None):
+    """
+    This function returns an instance of the GammaClass with shape parameter 1, for 
+    Exponential change-in-rate.
+
+    Parameters
+    ----------
+    theta0 (float): The pre-change rate parameter, if known. Defaults to None for pre-change rate unknown.
+
+    Returns
+    -------
+    instance: An instance of GammaClass with shape parameter 1.
+    """
+    return Gamma(rate=rate, shape=1)
 
 
 ################################
@@ -144,7 +251,7 @@ class Focus:
     np.random.seed(0)
     Y = np.concatenate((np.random.normal(loc=0.0, scale=1.0, size=5000), np.random.normal(loc=10.0, scale=1.0, size=5000)))
 
-    detector = Focus(Gaussian)
+    detector = Focus(Gaussian())
     threshold = 10.0
     for y in Y:
         detector.update(y)
@@ -174,14 +281,29 @@ class Focus:
         Parameters
         ----------
         comp_func: A constructor for the component function given an exponential family model to use for the change detection.
-                Currently implemented: Gaussian, Bernoulli, Poisson, GammaClass, or AR1Class.
-                For more details, check help(comp_func).
+                Currently implemented: Gaussian(), Bernoulli(), Poisson(), Gamma() or Exponential().
+                For more details, check documentation of each component function, e.g. `help(Gaussian)`.
 
         Returns
         -------
         Focus:
             An instance of class Focus, our changepoint detector.
 
+        Examples
+        --------
+        ```python
+        ## Gaussian change in mean ##
+        # with pre-change mean uknown
+        detector = Focus(Gaussian())         
+        # with pre-change mean known (and at 0)
+        detector = Focus(Gaussian(loc=0)) 
+
+        ## Gamma change in rate ##
+        # with pre-change scale parameter unknown
+        detector = Focus(Gamma(shape=2))
+         # with pre-change scale parameter known
+        detector = Focus(Gamma(scale=0, shape=2))
+        ```
 
         """
         self.cs = Focus._CUSUM()
