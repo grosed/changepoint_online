@@ -43,7 +43,7 @@ class Bernoulli(Family):
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
-        return S * math.log(x) + (c - s) * math.log(1 - x) + self.m0
+        return s * math.log(x) + (c - s) * math.log(1 - x) + self.m0
 
     def argmax(self, cs):
         agm = (cs.sn - self.st) / (cs.n - self.tau)
