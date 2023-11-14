@@ -272,7 +272,7 @@ class Focus:
 
     """
 
-    def __init__(self, comp_func) :
+    def __init__(self, comp_func, side = "both") :
         """
         Focus(comp_func)
 
@@ -310,6 +310,7 @@ class Focus:
         self.ql = Focus._Cost(ps = [comp_func(0.0, 0, 0.0)])
         self.qr = Focus._Cost(ps = [comp_func(0.0, 0, 0.0)])
         self.comp_func = comp_func
+        self.side = side
 
     def statistic(self) :
         """
@@ -377,17 +378,19 @@ class Focus:
         if self.qr.ps[0].theta0 is None:
             m0 = self.qr.ps[0].get_max(self.cs)
 
-        # pruning step
-        Focus._prune(self.qr, self.cs, "right")  # true for the right pruning
-        Focus._prune(self.ql, self.cs, "left")  # false for the left pruning
+        if self.side not in  ["left", "right", "both"]:
+            raise ValueError("size should be either 'both', 'right' or 'left'.")
 
-        # check the maximum
-        self.qr.opt = Focus._get_max_all(self.qr, self.cs, m0)
-        self.ql.opt = Focus._get_max_all(self.ql, self.cs, m0)
+        if self.side == "both" or self.side == "right":
+            Focus._prune(self.qr, self.cs, "right")  # true for the right pruning
+            self.qr.opt = Focus._get_max_all(self.qr, self.cs, m0)
+            # add a new point
+            self.qr.ps.append(self.comp_func(self.cs.sn, self.cs.n, m0))
+        if self.side == "both" or self.side == "left":
+            Focus._prune(self.ql, self.cs, "left")  # false for the left pruning
+            self.ql.opt = Focus._get_max_all(self.ql, self.cs, m0)
+            self.ql.ps.append(self.comp_func(self.cs.sn, self.cs.n, m0))
 
-        # add a new point
-        self.qr.ps.append(self.comp_func(self.cs.sn, self.cs.n, m0))
-        self.ql.ps.append(self.comp_func(self.cs.sn, self.cs.n, m0))
 
     class _Cost:
         def __init__(self, ps, opt=0):
