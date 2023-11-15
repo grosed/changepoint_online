@@ -104,9 +104,15 @@ class BernoulliClass(CompFunc):
         c = cs.n - self.tau
         s = cs.sn - self.st
         if self.theta0 is None:
-            return s * math.log(x) + (c - s) * math.log(1 - x) + self.m0
+            if 1-x > 0:
+                return s * math.log(x) + (c - s) * math.log(1 - x) + self.m0
+            else:
+                return -math.inf
         else:
-            return s * math.log(x / self.theta0) + (c - s) * math.log((1 - x) / (1 - self.theta0))
+            if 1-x > 0:
+                return s * math.log(x / self.theta0) + (c - s) * math.log((1 - x) / (1 - self.theta0))
+            else:
+                return -math.inf
         
     def argmax(self, cs):
         agm = (cs.sn - self.st) / (cs.n - self.tau)
@@ -223,7 +229,8 @@ class Focus:
     """
     The Focus class implements the Focus method, an algorithm for detecting changes in data streams on one-parameter exponential family models.
     For instance, Focus can detect changes-in-mean in a Gaussian data stream (white noise). 
-    It can be applied to settings where either the pre-change parameter is known or unknown.
+    It can be applied to settings where either the pre-change parameter is known or unknown. Furthremore, the test can be 
+    constrained to detect either an increase or a decrease in the value of the parameter.
         
     Focus solves the CUSUM likelihood-ratio test exactly in O(log(n)) time per iteration, where n is the current iteration. 
     The method is equivalent to running a rolling window (MOSUM) simultaneously for all sizes of window, or the Page-CUSUM for all possible values
@@ -283,6 +290,8 @@ class Focus:
         comp_func: A constructor for the component function given an exponential family model to use for the change detection.
                 Currently implemented: Gaussian(), Bernoulli(), Poisson(), Gamma() or Exponential().
                 For more details, check documentation of each component function, e.g. `help(Gaussian)`.
+        side: Constrains the detector to look for changes in one specific direction, i.e. increase or decrease in the value of the parameter.
+                Either 'both', 'right' or 'left'.
 
         Returns
         -------
