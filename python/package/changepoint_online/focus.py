@@ -104,22 +104,18 @@ class BernoulliClass(CompFunc):
         c = cs.n - self.tau
         s = cs.sn - self.st
         if self.theta0 is None:
-            if 1-x > 0:
-                return s * math.log(x) + (c - s) * math.log(1 - x) + self.m0
-            else:
-                return -math.inf
+            return s * math.log(x) + (c - s) * math.log(1 - x) + self.m0
         else:
-            if 1-x > 0:
-                return s * math.log(x / self.theta0) + (c - s) * math.log((1 - x) / (1 - self.theta0))
-            else:
-                return -math.inf
+            return s * math.log(x / self.theta0) + (c - s) * math.log((1 - x) / (1 - self.theta0))
         
     def argmax(self, cs):
         agm = (cs.sn - self.st) / (cs.n - self.tau)
         if agm == 0:
-            return sys.float_info.min
+            #return sys.float_info.min # this does not work
+            return 1e-9
         elif agm == 1:
-            return 1 - sys.float_info.min
+            #return 1 - sys.float_info.min # this does not work
+            return 1 - 1e-9
         else:
             return agm
         
