@@ -427,3 +427,39 @@ class Focus:
         return max(p.get_max(cs) - m0 for p in q.ps)
 
     
+##########################
+######## NPFocus #########
+##########################
+
+from collections import Counter
+
+class NPFocus:
+    def __init__(self, quantiles, side = "both"):
+        # Ensure that the quantiles list is not nested
+        if any(isinstance(i, list) for i in quantiles):
+            raise ValueError("Quantiles list should not be nested.")
+        
+        # init - same side for all quantiles
+        if len(side) != len(quantiles):
+            side = [side for _ in range(len(quantiles))]
+
+        # initializing the bernoulli detectors        
+        self.detectors = [Focus(Bernoulli(), side=s) for s in side]
+        self.quantiles = quantiles
+
+    def update(self, y):
+        for (d, q) in zip(self.detectors, self.quantiles):
+            d.update((y <= q) * 1)
+
+    def statistic(self) :
+        return [d.statistic() for d in self.detectors]
+
+    def changepoint(self) :
+
+        # Get statistics and changepoints for each detector
+        stats_changepoints = [(d.statistic(), d.changepoint()) for d in self.detectors]
+
+        # Find the detector with the highest statistic
+        max_stat, max_stat_changepoint = max(stats_changepoints, key=lambda x: x[0])
+
+        return {"stopping_time": max_stat_changepoint["stopping_time"], "changepoint": max_stat_changepoint["changepoint"], "max_stat": max_stat}
