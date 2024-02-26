@@ -104,22 +104,18 @@ class BernoulliClass(CompFunc):
         c = cs.n - self.tau
         s = cs.sn - self.st
         if self.theta0 is None:
-            if 1-x > 0:
-                return s * math.log(x) + (c - s) * math.log(1 - x) + self.m0
-            else:
-                return -math.inf
+            return s * math.log(x) + (c - s) * math.log(1 - x) + self.m0
         else:
-            if 1-x > 0:
-                return s * math.log(x / self.theta0) + (c - s) * math.log((1 - x) / (1 - self.theta0))
-            else:
-                return -math.inf
+            return s * math.log(x / self.theta0) + (c - s) * math.log((1 - x) / (1 - self.theta0))
         
     def argmax(self, cs):
         agm = (cs.sn - self.st) / (cs.n - self.tau)
         if agm == 0:
-            return sys.float_info.min
+            #return sys.float_info.min # this does not work
+            return 1e-9
         elif agm == 1:
-            return 1 - sys.float_info.min
+            #return 1 - sys.float_info.min # this does not work
+            return 1 - 1e-9
         else:
             return agm
         
@@ -431,3 +427,112 @@ class Focus:
         return max(p.get_max(cs) - m0 for p in q.ps)
 
     
+##########################
+######## NPFocus #########
+##########################
+
+from collections import Counter
+
+class NPFocus:
+    """
+    Implements the NPFocus (Non-Parametric FOCuS) algorithm for online changepoint detection in high-frequency data streams. 
+    NPFocus is particularly well-suited for scenarios where data distributions may not be well-understood or follow specific parametric assumptions.
+
+    NPFocus detects changes across multiple points (quantiles) in the data's empirical cumulative density function (ECDF). 
+    This is achieved by efficiently tracking the number of observations exceeding or falling below those quantiles.
+    NPFOCuS is built by merging statistics from multiple Bernoulli detectors, each focused on a specific quantile of the data stream. 
+
+    **Parameters:**
+
+
+    quantiles (list): A list of data quantile values to monitor (not quantile probabilities). These values represent specific points on the distribution of the data to monitor. Please, ensure that the list is not nested.
+    side (str, optional): Either "both", "up", or "down" indicating the direction of change to be detected for each quantile. 
+                         Defaults to "both" which detects changes in both directions. 
+
+    Raises
+    -------
+
+    ValueError: If the `quantiles` list is nested.
+
+    Attributes
+    -----------
+
+    detectors (list): A list of `Focus` objects (one for each quantile) used to detect changes.
+    quantiles (list): The list of quantiles provided to the constructor.
+
+    Methods
+    --------
+
+    update(y): Updates the internal state of the detectors with the new data point `y`.
+    statistic(): Returns a list of statistics, one for each detector.
+    changepoint(): Returns a dictionary containing information about the detected changepoint, including the stopping time, changepoint index, and maximum statistic.
+
+    References
+    ----------
+
+    A log-linear non-parametric online changepoint detection algorithm based on functional pruning.
+        G Romano, IA Eckley, P Fearnhead, IEEE Transactions on Signal Processing
+
+
+    Examples:
+    ---------
+
+    ```python
+    import numpy as np
+
+    # Define a simple Gaussian noise function
+    def generate_gaussian_noise(size):
+        return np.random.normal(loc=0.0, scale=1.0, size=size)
+
+    # Generate mixed data with change in gamma component
+    gamma_1 = np.random.gamma(4.0, scale=3.0, size=5000)
+    gamma_2 = np.random.gamma(4.0, scale=6.0, size=5000)
+    gaussian_noise = generate_gaussian_noise(10000)
+    Y = np.concatenate((gamma_1 + gaussian_noise[:5000], gamma_2 + gaussian_noise[5000:]))
+
+    # Create and use NPFocus detector
+    quantiles = [np.quantile(Y[:100], q) for q in [0.25, 0.5, 0.75]]
+    detector = NPFocus(quantiles)
+
+    stat_over_time = []
+
+    for y in Y:
+        detector.update(y)
+        if np.sum(detector.statistic()) > 20:
+            break
+
+
+    changepoint_info = detector.changepoint()
+
+    print(f"Changepoint information:\n{changepoint_info}")
+    ```
+    """
+    def __init__(self, quantiles, side = "both"):
+        # Ensure that the quantiles list is not nested
+        if any(isinstance(i, list) for i in quantiles):
+            raise ValueError("Quantiles list should not be nested.")
+        
+        # init - same side for all quantiles
+        if len(side) != len(quantiles):
+            side = [side for _ in range(len(quantiles))]
+
+        # initializing the bernoulli detectors        
+        self.detectors = [Focus(Bernoulli(), side=s) for s in side]
+        self.quantiles = quantiles
+
+    def update(self, y):
+        for (d, q) in zip(self.detectors, self.quantiles):
+            d.update((y <= q) * 1)
+
+    def statistic(self) :
+        return [d.statistic() for d in self.detectors]
+
+    def changepoint(self) :
+
+        # Get statistics and changepoints for each detector
+        stats_changepoints = [(d.statistic(), d.changepoint()) for d in self.detectors]
+
+        # Find the detector with the highest statistic
+        max_stat, max_stat_changepoint = max(stats_changepoints, key=lambda x: x[0])
+
+        return {"stopping_time": max_stat_changepoint["stopping_time"], "changepoint": max_stat_changepoint["changepoint"], "max_stat": max_stat}

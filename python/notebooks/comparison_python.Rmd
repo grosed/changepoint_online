@@ -3,14 +3,15 @@ title: "R Notebook"
 output: html_notebook
 ---
 
+```{r}
+library(reticulate)
+use_python("../../.venv/bin/python")
+```
+
+
 # Comparison of Rcpp and python implementation.
 
 This requires exfocus installed from this repo: <https://github.com/gtromano/exfocus/tree/main>
-
-```{r}
-library(reticulate)
-use_python("../.venv/bin/python")
-```
 
 ## Importing the libraries
 
@@ -68,10 +69,36 @@ for y in r.Y:
 ```{r}
 cbind(py$res_py, res_r$stat)[1:10,]
 ```
+### Bernoulli
 
+```{r}
+theta0 <- .4
+set.seed(42)
+Y <- c(rbinom(200, prob =  theta0, size = 1), rbinom(200, prob = theta0 + .3, size = 1))
+```
+
+Pre-change mean unknown
+
+```{r}
+res_r <- exfocus(Y, Inf, family = "bernoulli")
+```
+
+```{python}
+# testing call to bernoulli
+detector = Focus(Bernoulli())
+res_py = []
+for y in r.Y:
+    detector.update(y)
+    res_py.append(detector.statistic())
+```
+
+```{r}
+cbind(Y, py$res_py, res_r$stat)[1:10, ]
+```
 ### Poisson
 
 Pre-change mean unkown
+
 ```{r}
 theta0 <- 1
 set.seed(42)
@@ -115,6 +142,7 @@ cbind(py$res_py, res_r$stat)[1:10, ]
 ```
 
 ### Gamma
+
 ```{r}
 theta0 <- 4
 shape <- 1
@@ -122,12 +150,11 @@ set.seed(42)
 Y <- c(rgamma(200, rate = theta0, shape = shape), rgamma(200, rate = theta0 + 1, shape = shape))
 ```
 
-Pre-change mean uknown
+Pre-change mean unknown
 
 ```{r}
 res_r <- exfocus(Y, Inf, family = "gamma", args = list(shape = shape))
 ```
-
 
 ```{python}
 # testing call to gamma
@@ -159,7 +186,12 @@ for y in r.Y:
 ```{r}
 cbind(py$res_py, res_r$stat)[1:10, ]
 ```
+
 ```{python}
 detector.ql.ps[10].theta0
 ```
 
+
+$$
+x + y
+$$
