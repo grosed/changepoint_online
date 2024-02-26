@@ -434,6 +434,69 @@ class Focus:
 from collections import Counter
 
 class NPFocus:
+    """
+    Implements the NPFocus (Non-Parametric FOCuS) algorithm for online changepoint detection in high-frequency data streams. 
+    NPFocus is particularly well-suited for scenarios where data distributions may not be well-understood or follow specific parametric assumptions.
+
+    NPFocus detects changes across multiple points (quantiles) in the data's empirical cumulative density function (ECDF). 
+    This is achieved by efficiently tracking the number of observations exceeding or falling below those quantiles.
+    NPFOCuS is built by merging statistics from multiple Bernoulli detectors, each focused on a specific quantile of the data stream. 
+
+    **Parameters:**
+
+
+    quantiles (list): A list of quantiles (between 0 and 1) to monitor. The length of the list determines the number of detectors used. The list should not be nested.
+    side (str, optional): Either "both", "up", or "down" indicating the direction of change to be detected for each quantile. 
+                         Defaults to "both" which detects changes in both directions. 
+
+    Raises
+    -------
+
+    ValueError: If the `quantiles` list is nested.
+
+    Attributes
+    -----------
+
+    detectors (list): A list of `Focus` objects (one for each quantile) used to detect changes.
+    quantiles (list): The list of quantiles provided to the constructor.
+
+    Methods
+    --------
+
+    update(y): Updates the internal state of the detectors with the new data point `y`.
+    statistic(): Returns a list of statistics, one for each detector.
+    changepoint(): Returns a dictionary containing information about the detected changepoint, including the stopping time, changepoint index, and maximum statistic.
+
+    References
+    ----------
+
+    A log-linear non-parametric online changepoint detection algorithm based on functional pruning.
+        G Romano, IA Eckley, P Fearnhead, IEEE Transactions on Signal Processing
+
+
+    Examples:
+    ---------
+
+    ```python
+    from collections import Counter
+
+    # Example usage: detect changes in both directions for the 25th and 75th quantiles
+    quantiles = [0.25, 0.75]
+    detector = NPFocus(quantiles)
+
+    # Simulate data stream
+    for y in data_stream:
+        detector.update(y)
+        changepoint_info = detector.changepoint()
+        if changepoint_info["max_stat"] > threshold:
+            # Changepoint detected!
+            break
+
+    # Access changepoint information
+    stopping_time = changepoint_info["stopping_time"]
+    changepoint = changepoint_info["changepoint"]
+    ```
+    """
     def __init__(self, quantiles, side = "both"):
         # Ensure that the quantiles list is not nested
         if any(isinstance(i, list) for i in quantiles):

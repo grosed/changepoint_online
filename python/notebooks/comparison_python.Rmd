@@ -3,14 +3,15 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-# Comparison of Rcpp and python implementation.
-
-This requires exfocus installed from this repo: <https://github.com/gtromano/exfocus/tree/main>
-
 ```{r}
 library(reticulate)
 use_python("../../.venv/bin/python")
 ```
+
+
+# Comparison of Rcpp and python implementation.
+
+This requires exfocus installed from this repo: <https://github.com/gtromano/exfocus/tree/main>
 
 ## Importing the libraries
 
@@ -189,3 +190,8 @@ cbind(py$res_py, res_r$stat)[1:10, ]
 ```{python}
 detector.ql.ps[10].theta0
 ```
+
+
+$$
+x + y
+$$
