@@ -445,7 +445,7 @@ class NPFocus:
     **Parameters:**
 
 
-    quantiles (list): A list of quantiles (between 0 and 1) to monitor. The length of the list determines the number of detectors used. The list should not be nested.
+    quantiles (list): A list of data quantile values to monitor (not quantile probabilities). These values represent specific points on the distribution of the data to monitor. Please, ensure that the list is not nested.
     side (str, optional): Either "both", "up", or "down" indicating the direction of change to be detected for each quantile. 
                          Defaults to "both" which detects changes in both directions. 
 
@@ -478,23 +478,33 @@ class NPFocus:
     ---------
 
     ```python
-    from collections import Counter
+    import numpy as np
 
-    # Example usage: detect changes in both directions for the 25th and 75th quantiles
-    quantiles = [0.25, 0.75]
+    # Define a simple Gaussian noise function
+    def generate_gaussian_noise(size):
+        return np.random.normal(loc=0.0, scale=1.0, size=size)
+
+    # Generate mixed data with change in gamma component
+    gamma_1 = np.random.gamma(4.0, scale=3.0, size=5000)
+    gamma_2 = np.random.gamma(4.0, scale=6.0, size=5000)
+    gaussian_noise = generate_gaussian_noise(10000)
+    Y = np.concatenate((gamma_1 + gaussian_noise[:5000], gamma_2 + gaussian_noise[5000:]))
+
+    # Create and use NPFocus detector
+    quantiles = [np.quantile(Y[:100], q) for q in [0.25, 0.5, 0.75]]
     detector = NPFocus(quantiles)
 
-    # Simulate data stream
-    for y in data_stream:
+    stat_over_time = []
+
+    for y in Y:
         detector.update(y)
-        changepoint_info = detector.changepoint()
-        if changepoint_info["max_stat"] > threshold:
-            # Changepoint detected!
+        if np.sum(detector.statistic()) > 20:
             break
 
-    # Access changepoint information
-    stopping_time = changepoint_info["stopping_time"]
-    changepoint = changepoint_info["changepoint"]
+
+    changepoint_info = detector.changepoint()
+
+    print(f"Changepoint information:\n{changepoint_info}")
     ```
     """
     def __init__(self, quantiles, side = "both"):
