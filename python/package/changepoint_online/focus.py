@@ -446,7 +446,7 @@ class NPFocus:
 
 
     quantiles (list): A list of data quantile values to monitor (not quantile probabilities). These values represent specific points on the distribution of the data to monitor. Please, ensure that the list is not nested.
-    side (str, optional): Either "both", "up", or "down" indicating the direction of change to be detected for each quantile. 
+    side (str, optional): Either "both", "right", or "left" indicating the direction of change to be detected for each quantile. 
                          Defaults to "both" which detects changes in both directions. 
 
     Raises

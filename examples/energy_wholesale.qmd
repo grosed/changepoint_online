@@ -1,0 +1,95 @@
+---
+title: "Octopus Energy Agile Wholesale Price Monitoring"
+format:
+    html:
+      code-tools: true
+      code-fold: show
+editor: visual
+---
+```{python}
+import pandas as pd
+from changepoint_online import NPFocus
+import numpy as np
+from plotnine import *
+```
+
+## Data from Octopus Energy
+
+```{python}
+agile_hist = pd.read_csv("data/agile-half-hour-actual-rates.csv")
+
+# Prepping data for analysis
+agile_hist['time'] = pd.to_datetime(agile_hist['Period from'])
+df_hist = agile_hist.rename(columns={"Agile Import price (p/kWh)": "value"})
+df_hist['is_peak'] = df_hist['time'].dt.hour.isin(range(16, 19)).replace({True: 'yes', False: 'no'}).astype('category')
+df_hist['value'] = pd.to_numeric(df_hist['value'], errors='coerce')
+```
+
+
+```{python}
+# Plotting the data
+(ggplot(df_hist, aes(x='time', y='value')) +
+ geom_line(alpha=0.5) +
+ geom_point(aes(color='is_peak')) +
+ theme_minimal()
+)
+```
+
+```{python}
+from pandas.tseries.offsets import DateOffset
+
+
+# Subtracting the median by hour
+training_day = df_hist['time'].min() + DateOffset(days=6)
+df_hist['hour'] = df_hist['time'].dt.hour
+hour_median = df_hist[df_hist['time'] <= training_day].groupby('hour')['value'].median().rename('med')
+df_hist = df_hist.join(hour_median, on='hour')
+df_hist['y_adjusted'] = df_hist['value'] - df_hist['med']
+```
+```{python}
+# Plotting the adjusted data
+(ggplot(df_hist, aes(x='time', y='y_adjusted')) +
+ geom_line(alpha=0.5) +
+ geom_point(aes(color='is_peak')) +
+ theme_minimal()
+)
+```
+
+```{python}
+
+df_train = df_hist.query("time <= '2024-01-30'")
+df_test = df_hist.query("time > '2024-01-30'")
+
+# Creating some quantiles for the NPFocus detector
+quantiles = [np.quantile(df_train.y_adjusted, q) for q in [0.25, 0.5, 0.75]]
+
+# monitoring only up changes (e.g. increases in price)
+detector = NPFocus(quantiles, side = "right")
+threshold = 20
+ 
+# Simulate data stream
+for y in df_test.y_adjusted:
+    detector.update(-y)
+    changepoint_info = detector.changepoint()
+    if changepoint_info["max_stat"] > threshold:
+        # Changepoint detected!
+        break
+ 
+# Access changepoint information
+stopping_time = changepoint_info["stopping_time"]
+changepoint = changepoint_info["changepoint"]
+
+```
+
+It took us about `{python} df_test.iloc[stopping_time].time - df_test.iloc[changepoint].time` to detect a change!
+
+```{python}
+(
+ggplot(df_test) +
+  aes(x = "time", y = "y_adjusted") +
+  geom_line(alpha = .5) +
+  geom_vline(xintercept = df_test.iloc[changepoint].time, linetype = "dotted") +
+  geom_vline(xintercept = df_test.iloc[stopping_time].time) +
+  theme_minimal()
+)
+```
