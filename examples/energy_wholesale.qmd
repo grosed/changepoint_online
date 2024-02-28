@@ -6,6 +6,7 @@ format:
       code-fold: show
 editor: visual
 ---
+
 ```{python}
 import pandas as pd
 from changepoint_online import NPFocus
@@ -24,7 +25,6 @@ df_hist = agile_hist.rename(columns={"Agile Import price (p/kWh)": "value"})
 df_hist['is_peak'] = df_hist['time'].dt.hour.isin(range(16, 19)).replace({True: 'yes', False: 'no'}).astype('category')
 df_hist['value'] = pd.to_numeric(df_hist['value'], errors='coerce')
 ```
-
 
 ```{python}
 # Plotting the data
@@ -46,6 +46,7 @@ hour_median = df_hist[df_hist['time'] <= training_day].groupby('hour')['value'].
 df_hist = df_hist.join(hour_median, on='hour')
 df_hist['y_adjusted'] = df_hist['value'] - df_hist['med']
 ```
+
 ```{python}
 # Plotting the adjusted data
 (ggplot(df_hist, aes(x='time', y='y_adjusted')) +
@@ -64,12 +65,12 @@ df_test = df_hist.query("time > '2024-01-30'")
 quantiles = [np.quantile(df_train.y_adjusted, q) for q in [0.25, 0.5, 0.75]]
 
 # monitoring only up changes (e.g. increases in price)
-detector = NPFocus(quantiles, side = "right")
-threshold = 20
+detector = NPFocus(quantiles, side = "left")
+threshold = 15
  
 # Simulate data stream
 for y in df_test.y_adjusted:
-    detector.update(-y)
+    detector.update(y)
     changepoint_info = detector.changepoint()
     if changepoint_info["max_stat"] > threshold:
         # Changepoint detected!
@@ -79,9 +80,11 @@ for y in df_test.y_adjusted:
 stopping_time = changepoint_info["stopping_time"]
 changepoint = changepoint_info["changepoint"]
 
+time_delta = df_test.iloc[stopping_time].time - df_test.iloc[changepoint].time
+
 ```
 
-It took us about `{python} df_test.iloc[stopping_time].time - df_test.iloc[changepoint].time` to detect a change!
+It took us about `{python} round(time_delta.total_seconds()/3600)` hours to detect a change!
 
 ```{python}
 (

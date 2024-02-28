@@ -398,7 +398,7 @@ class Focus:
 
 
     class _Cost:
-        def __init__(self, ps, opt=0):
+        def __init__(self, ps, opt=-1.0):
             self.ps = ps  # a list containing the various pieces
             self.opt = opt  # the global optimum value for ease of access
     class _CUSUM:
