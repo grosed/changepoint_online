@@ -81,7 +81,6 @@ for y in df_test.y_adjusted:
 # Access changepoint information
 stopping_time = changepoint_info["stopping_time"]
 changepoint = changepoint_info["changepoint"]
-print(stoppin_time)
 ```
 
 
