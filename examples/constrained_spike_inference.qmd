@@ -1,8 +1,6 @@
 ---
 title: "Constrained Spike Inference Data Example"
-format:
-  html: 
-    code-tools: true
+format: ipynb
 editor: visual
 ---
 
