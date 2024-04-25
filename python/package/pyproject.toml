@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "changepoint_online"
-version = "0.0.3"
+version = "1.0.0"
 authors = [
   { name="Daniel Grose", email="dan.grose@lancaster.ac.uk" },
   { name="Gaetano Romano", email="g.romano@lancaster.ac.uk" },
