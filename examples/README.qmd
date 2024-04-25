@@ -1,9 +1,7 @@
 ---
-title: "README"
+title: "changepoint_online - A Collection of Methods for Online Changepoint Detection"
 format: gfm
 ---
-
-# changepoint_online - A Collection of Methods for Online Changepoint Detection
 
 The changepoint_online package provides efficient algorithms for detecting changes in data streams based on the Focus algorithm. The Focus algorithm solves the CUSUM likelihood-ratio test exactly in O(log(n)) time per iteration, where n represents the current iteration. The method is equivalent to running a rolling window (MOSUM) simultaneously for all sizes of windows or the Page-CUSUM for all possible values of the size of change (an infinitely dense grid).
 

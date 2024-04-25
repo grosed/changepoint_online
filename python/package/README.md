@@ -1,7 +1,6 @@
-# README
+# changepoint_online - A Collection of Methods for Online Changepoint
+Detection
 
-
-# changepoint_online - A Collection of Methods for Online Changepoint Detection
 
 The changepoint_online package provides efficient algorithms for
 detecting changes in data streams based on the Focus algorithm. The
