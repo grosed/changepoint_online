@@ -1,10 +1,7 @@
----
-title: "Octopus Energy Agile Wholesale Price Monitoring"
-format: gfm
-editor: visual
----
+# Octopus Energy Agile Wholesale Price Monitoring
 
-```{python}
+
+``` python
 import pandas as pd
 from changepoint_online import NPFocus
 import numpy as np
@@ -13,9 +10,10 @@ from plotnine import *
 
 ## Data from Octopus Energy
 
-We import some data downloaded from Octopus Energy's [Agile Portal](https://agile.octopushome.net/historical-data)
+We import some data downloaded from Octopus Energy’s [Agile
+Portal](https://agile.octopushome.net/historical-data)
 
-```{python}
+``` python
 agile_hist = pd.read_csv("data/agile-half-hour-actual-rates-01-01-2023_28-02-2024.csv")
 
 # Prepping data for analysis
@@ -25,7 +23,7 @@ df_hist['is_peak'] = df_hist['time'].dt.hour.isin(range(16, 19)).replace({True: 
 df_hist['value'] = pd.to_numeric(df_hist['value'], errors='coerce')
 ```
 
-```{python}
+``` python
 # Plotting the data
 (ggplot(df_hist, aes(x='time', y='value')) +
  geom_line(alpha=0.5) +
@@ -34,7 +32,9 @@ df_hist['value'] = pd.to_numeric(df_hist['value'], errors='coerce')
  )
 ```
 
-```{python}
+![](energy_wholesale_files/figure-commonmark/cell-4-output-1.png)
+
+``` python
 from pandas.tseries.offsets import DateOffset
 
 
@@ -46,7 +46,7 @@ df_hist = df_hist.join(hour_median, on='hour')
 df_hist['y_adjusted'] = df_hist['value'] - df_hist['med']
 ```
 
-```{python}
+``` python
 # Plotting the adjusted data
 (ggplot(df_hist, aes(x='time', y='y_adjusted')) +
  geom_line(alpha=0.5) +
@@ -55,8 +55,9 @@ df_hist['y_adjusted'] = df_hist['value'] - df_hist['med']
 )
 ```
 
-```{python}
+![](energy_wholesale_files/figure-commonmark/cell-6-output-1.png)
 
+``` python
 df_train = df_hist.query("time <= @training_day")
 df_test = df_hist.query("time > @training_day")
 
@@ -80,9 +81,7 @@ stopping_time = changepoint_info["stopping_time"]
 changepoint = changepoint_info["changepoint"]
 ```
 
-
-
-```{python}
+``` python
 detection_plot = (
 ggplot(df_test) +
   aes(x = "time", y = "value") +
@@ -94,9 +93,22 @@ ofgems_price_cap = pd.Timestamp('2023-07-01 00:00:00')
 time_delta = df_test.iloc[stopping_time].time - ofgems_price_cap
 ```
 
-Interestingly enough, if we look from the plot above we notice that we detect a change in the upper tail. This was about `{python} round(time_delta.total_seconds()/3600)` hours following the [lift of the energy cap](https://www.theguardian.com/business/2023/may/25/britain-energy-price-cap-cut-ofgem-electricity-gas-bills-how-changes-affect-you) that happened on the 1 July in the UK.
-If we see more in details what happened following the rise of the energy cap:
-```{python}
+Interestingly enough, if we look from the plot above we notice that we
+detect a change in the upper tail. This was about 91 hours following the
+[lift of the energy
+cap](https://www.theguardian.com/business/2023/may/25/britain-energy-price-cap-cut-ofgem-electricity-gas-bills-how-changes-affect-you)
+that happened on the 1 July in the UK. If we see more in details what
+happened following the rise of the energy cap:
+
+``` python
 (detection_plot + xlim(pd.Timestamp('2023-06-28 00:00:00'), pd.Timestamp('2023-07-07')))
 ```
-We can see that NPFOCuS detected an increase in one of the upper tail of the distribution. One case see clearly that there was a sudden drop in price for the first two days, however the prices slightly increased over peak times. 
+
+    /home/romano/Documents/changepoint.online/.venv/lib/python3.11/site-packages/plotnine/geoms/geom_path.py:98: PlotnineWarning: geom_path: Removed 17034 rows containing missing values.
+
+![](energy_wholesale_files/figure-commonmark/cell-9-output-2.png)
+
+We can see that NPFOCuS detected an increase in one of the upper tail of
+the distribution. One case see clearly that there was a sudden drop in
+price for the first two days, however the prices slightly increased over
+peak times.
