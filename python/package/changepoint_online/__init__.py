@@ -1,17 +1,22 @@
-"""changepoint_online - A Collection of Methods for Online Changepoint Detection
+"""A Collection of Methods for Online Changepoint Detection
 
 The changepoint_online package provides efficient algorithms for detecting 
-changes in data streams. It implements the focus algorithm for one-parameter exponential family models
-including the changes-in-mean. It's versatile enough to be applied in scenarios where the pre-change parameter is either known or unknown, 
-and you can even constrain it to detect specific types of changes (such as increases or decreases in parameter values).
-
-Key Features
-------------
-Contains all focus exponential family algorithms as well as the NPFOCuS algorithm for non-parametric changepoint detection.
+changes in data streams based on the Focus algorithm. 
 The Focus algorithm solves the CUSUM likelihood-ratio test exactly in O(log(n))
 time per iteration, where n represents the current iteration.
 The method is equivalent to running a rolling window (MOSUM) simultaneously 
-for all sizes of windows or the Page-CUSUM for all possible values of the size of change (an infinitely dense grid).
+for all sizes of windows or the Page-CUSUM for all possible values of the
+size of change (an infinitely dense grid).
+
+
+Key Features
+------------
+    Contains all focus exponential family algorithms as well as 
+        the NPFOCuS algorithm for non-parametric changepoint detection.
+    It's versatile enough to be applied in scenarios where the pre-change 
+        parameter is either known or unknown. 
+    It is possible to apply constraints to detect specific types of changes
+        (such as increases or decreases in parameter values).
 
 References
 -----------
@@ -45,7 +50,7 @@ Quick Example
     print(f"We detected a changepoint at time {result['stopping_time']}.")
     ```
 
-Copyright (C) 2023 Gaetano Romano, Dan Grose
+Copyright (C) 2023 Gaetano Romano, Daniel Grose
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -64,3 +69,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/gpl-3.0.txt>.
 
 
 from .focus import Focus, Gaussian, Bernoulli, Poisson, Gamma, Exponential, NPFocus
+
+__title__ = 'changepoint_online'
+__version__ = '0.0.3'
+__author__ = 'Gaetano Romano, Daniel Grose'
