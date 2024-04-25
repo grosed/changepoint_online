@@ -34,6 +34,7 @@ df_hist['value'] = pd.to_numeric(df_hist['value'], errors='coerce')
  geom_line(alpha=0.5) +
  geom_point(aes(color='is_peak')) +
  theme_minimal()
+ )
 )
 ```
 
