@@ -17,7 +17,7 @@ possible values of the size of change (an infinitely dense grid).
 
 #### installing from github with pip
 
-    python -m pip install 'git+https<area>://github.com/grosed/changepoint_online/#egg=changepoint.online&subdirectory=python/package'
+    python -m pip install 'git+https://github.com/grosed/changepoint_online/#egg=changepoint_online&subdirectory=python/package'
 
 ## Key Features
 
