@@ -249,8 +249,9 @@ class Focus:
     ```python
 
     ### Simple gaussian change in mean case ###
+    from changepoint_online import Focus, Gaussian
     import numpy as np
-    
+
     np.random.seed(0)
     Y = np.concatenate((np.random.normal(loc=0.0, scale=1.0, size=5000), np.random.normal(loc=10.0, scale=1.0, size=5000)))
 
@@ -260,6 +261,9 @@ class Focus:
         detector.update(y)
         if detector.statistic() >= threshold:
             break
+
+    result = detector.changepoint()
+    print(f"We detected a changepoint at time {result['stopping_time']}.")
     ```
 
     Attributes
@@ -298,12 +302,16 @@ class Focus:
         --------
         ```python
         ## Gaussian change in mean ##
+        from changepoint_online import Focus, Gaussian
+
         # with pre-change mean uknown
         detector = Focus(Gaussian())         
         # with pre-change mean known (and at 0)
         detector = Focus(Gaussian(loc=0)) 
 
         ## Gamma change in rate ##
+        from changepoint_online import Focus, Gamma
+
         # with pre-change scale parameter unknown
         detector = Focus(Gamma(shape=2))
          # with pre-change scale parameter known
@@ -478,6 +486,7 @@ class NPFocus:
     ---------
 
     ```python
+    from changepoint_online import NPFocus
     import numpy as np
 
     # Define a simple Gaussian noise function
@@ -504,7 +513,7 @@ class NPFocus:
 
     changepoint_info = detector.changepoint()
 
-    print(f"Changepoint information:\n{changepoint_info}")
+    print(f"Output information:\n{changepoint_info}")
     ```
     """
     def __init__(self, quantiles, side = "both"):
