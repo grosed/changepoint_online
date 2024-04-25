@@ -70,6 +70,5 @@ along with this program. If not, see <https://www.gnu.org/licenses/gpl-3.0.txt>.
 
 from .focus import Focus, Gaussian, Bernoulli, Poisson, Gamma, Exponential, NPFocus
 
-__title__ = 'changepoint_online'
 __version__ = '0.0.3'
 __author__ = 'Gaetano Romano, Daniel Grose'
