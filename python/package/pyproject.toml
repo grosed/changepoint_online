@@ -16,7 +16,7 @@ classifiers = [
     "License :: OSI Approved :: GPL-3.0-only",
     "Operating System :: OS Independent",
 ]
-dependencies = ['sortedcontainers','scipy']
+dependencies = []
 
 [project.urls]
 "Homepage" = "https://github.com/grosed/changepoint.online"
