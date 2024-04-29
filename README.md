@@ -1,6 +1,8 @@
-# changepoint_online
+# `changepoint_online`
 
 
+- [**A Collection of Methods for Online Changepoint
+  Detection**](#a-collection-of-methods-for-online-changepoint-detection)
 - [Installation](#installation)
   - [using pip](#using-pip)
 - [Examples](#examples)
@@ -9,14 +11,13 @@
     distributions](#change-in-one-parameter-exponential-family-distributions)
   - [Non-Parametric changepoint
     detection](#non-parametric-changepoint-detection)
-  - [More examples](#more-examples)
+  - [Real-data examples](#real-data-examples)
 - [License](#license)
 - [GitHub Repository](#github-repository)
 - [How to Cite This Work](#how-to-cite-this-work)
 - [References](#references)
 
-`changepoint_online`: **A Collection of Methods for Online Changepoint
-Detection**
+## **A Collection of Methods for Online Changepoint Detection**
 
 The changepoint_online package provides efficient algorithms for
 detecting changes in data streams, based on the `Focus` algorithm. The
@@ -173,7 +174,7 @@ print(changepoint_info["stopping_time"])
 
     5014
 
-### More examples
+### Real-data examples
 
 More examples, including real-world applications, are found in the
 [examples](https://github.com/grosed/changepoint_online/tree/main/examples)
@@ -184,7 +185,9 @@ folder, including:
   [quarto
   notebook](https://github.com/grosed/changepoint_online/blob/main/examples/energy_wholesale.qmd))
 
-- Constrained Spike inference in calcium imaging data (markdown, [quarto
+- Constrained Spike inference in calcium imaging data
+  ([markdown](https://github.com/grosed/changepoint_online/blob/main/examples/constrained_spike_inference.md),
+  [quarto
   notebook](https://github.com/grosed/changepoint_online/blob/main/examples/constrained_spike_inference.qmd))
 
 ## License
