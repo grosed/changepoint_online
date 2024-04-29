@@ -1,19 +1,19 @@
----
-title: "Constrained Spike Inference Data Example"
-format: gfm
-execute:
-  warning: false
----
+# Constrained Spike Inference Data Example
 
-This notebooks shows an example of the constrained model for Focus. This example is inspired from one application of changepoint detection to spike inference in calcium imaging data. For past developments in the offline setting, see [Jewell and al. (2020)](https://academic.oup.com/biostatistics/article/21/4/709/5310127).
 
-```{python}
+This notebooks shows an example of the constrained model for Focus. This
+example is inspired from one application of changepoint detection to
+spike inference in calcium imaging data. For past developments in the
+offline setting, see [Jewell and
+al. (2020)](https://academic.oup.com/biostatistics/article/21/4/709/5310127).
+
+``` python
 #!python -m pip install pandas
 #!python -m pip install plotnine
 #!python -m pip install ipywidgets
 ```
 
-```{python}
+``` python
 import numpy as np
 import pandas as pd
 from plotnine import ggplot, aes, geom_line, geom_vline, theme_minimal, xlim, geom_segment, geom_point
@@ -23,24 +23,29 @@ import pickle
 ```
 
 ## An introductory example
-To explain how to run the costrained recursion in focus, and see what effects it has on the changepoint detections, we generate an artificial example:
 
-```{python}
+To explain how to run the costrained recursion in focus, and see what
+effects it has on the changepoint detections, we generate an artificial
+example:
+
+``` python
 np.random.seed(0)
 Y = np.concatenate((np.random.normal(loc=0.0, scale=1.0, size=1000),
                     np.random.normal(loc=-2.0, scale=1.0, size=1000),
                     np.random.normal(loc=1.0, scale=1.0, size=1000)))
 ```
 
-```{python}
+``` python
 df = pd.DataFrame({'t' : range(Y.size), 'Y': Y})
 (ggplot(df, aes(x='t', y='Y')) +
         geom_line())
 ```
 
+![](constrained_spike_inference_files/figure-commonmark/cell-5-output-1.png)
+
 For detecting just up changes we can specify:
 
-```{python}
+``` python
 threshold = 10.0
 
 detector = Focus(Gaussian(), side="right")
@@ -51,9 +56,11 @@ for y in Y:
 detector.changepoint()
 ```
 
+    {'stopping_time': 2009, 'changepoint': 2002}
+
 Similarly, for detecting just down changes we can specify:
 
-```{python}
+``` python
 threshold = 10.0
 
 detector = Focus(Gaussian(), side="left")
@@ -64,18 +71,23 @@ for y in Y:
 detector.changepoint()
 ```
 
+    {'stopping_time': 1008, 'changepoint': 1000}
+
 ## Constrained Up-Down model for spike inference
 
-Now this constrained optimization can be useful for detecting spikes in calcium-imaging data. In this context, a spike is equivalent to a neuron firing. Following a spike we find an exponential decay.
+Now this constrained optimization can be useful for detecting spikes in
+calcium-imaging data. In this context, a spike is equivalent to a neuron
+firing. Following a spike we find an exponential decay.
 
-```{python}
+``` python
 with open("data/example_trace.pkl", "rb") as f:
     neur_trace = pickle.load(f)
 ```
 
-Plotting the trace (and the real spike times, in orange below the calcium trace):
+Plotting the trace (and the real spike times, in orange below the
+calcium trace):
 
-```{python}
+``` python
 # Define the y position for the segments
 y_position = 0
 plt_seg_range = -.5
@@ -98,10 +110,16 @@ df = pd.DataFrame({'t' : neur_trace["time"], 'Y': neur_trace["trace"]})
 )
 ```
 
-We can run a two-states constrained model to keep track of the up state and the decay state.  
-To do so, at every iteration we run two changepoint detectors, one focusing on the left-changes (decay) and one for the right-changes (increase, equivalent to a neuron firing). Every time one of the two detectors passes the relative threshold, we re-initialize the model. 
+![](constrained_spike_inference_files/figure-commonmark/cell-9-output-1.png)
 
-```{python}
+We can run a two-states constrained model to keep track of the up state
+and the decay state.  
+To do so, at every iteration we run two changepoint detectors, one
+focusing on the left-changes (decay) and one for the right-changes
+(increase, equivalent to a neuron firing). Every time one of the two
+detectors passes the relative threshold, we re-initialize the model.
+
+``` python
 # change this to focus on a smaller part of the trace
 lower, upper = 0, len(neur_trace["trace"])
 Y = neur_trace["trace"][lower:upper]
@@ -147,12 +165,13 @@ for t, y in enumerate(Y):
         cpt_found = False
         r_detector = Focus(Gaussian(), side="right")
         l_detector = Focus(Gaussian(), side="left")
-
 ```
 
-We can see that by focusing only on the up states, we are able to reconstruct the neuron firing in real-time with relatively short delay (few milliseconds), few missed detections, and no false positives.
+We can see that by focusing only on the up states, we are able to
+reconstruct the neuron firing in real-time with relatively short delay
+(few milliseconds), few missed detections, and no false positives.
 
-```{python}
+``` python
 # Define the y position for the segments
 y_position = 0
 plt_seg_range = -.5
@@ -190,7 +209,9 @@ df = pd.DataFrame({'t' : time, 'Y': Y})
 )
 ```
 
-```{python}
+![](constrained_spike_inference_files/figure-commonmark/cell-11-output-1.png)
+
+``` python
 (ggplot(df, aes(x='t', y='Y')) + 
     geom_line() + 
     geom_segment(df_spikes, aes(x = 't', xend = 't', y = 'y', yend = 'yend'), alpha = 0.6, colour = "orange") +
@@ -204,3 +225,4 @@ df = pd.DataFrame({'t' : time, 'Y': Y})
 )
 ```
 
+![](constrained_spike_inference_files/figure-commonmark/cell-12-output-1.png)

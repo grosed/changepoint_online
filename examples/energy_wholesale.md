@@ -104,9 +104,7 @@ happened following the rise of the energy cap:
 (detection_plot + xlim(pd.Timestamp('2023-06-28 00:00:00'), pd.Timestamp('2023-07-07')))
 ```
 
-    /home/romano/Documents/changepoint.online/.venv/lib/python3.11/site-packages/plotnine/geoms/geom_path.py:98: PlotnineWarning: geom_path: Removed 17034 rows containing missing values.
-
-![](energy_wholesale_files/figure-commonmark/cell-9-output-2.png)
+![](energy_wholesale_files/figure-commonmark/cell-9-output-1.png)
 
 We can see that NPFOCuS detected an increase in one of the upper tail of
 the distribution. One case see clearly that there was a sudden drop in

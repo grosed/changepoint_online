@@ -1,7 +1,9 @@
 ---
 title: "Octopus Energy Agile Wholesale Price Monitoring"
-format: gfm
-editor: visual
+format: 
+  gfm
+execute:
+  warning: false
 ---
 
 ```{python}
