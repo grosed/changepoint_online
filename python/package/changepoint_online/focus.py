@@ -34,11 +34,28 @@ class CompFunc:
     m0 (float): The m0 value, e.g. the max of the evidence for no-change when the component function was introduced.
     theta0 (float): The true pre-change parameter, in case this is known.
     """
-    def __init__(self, st, tau, m0, theta0):
+    def __init__(self, st, tau, theta0):
         self.st = st
         self.tau = tau
-        self.m0 = m0
         self.theta0 = theta0
+
+
+
+class UnivariateCompFunc(CompFunc):
+    """
+    This class represents a component function of the Focus optimization cost.
+    Each component function is associated with a given split (candidate changepoint) 
+    of the sequential GLR test.
+    For more details about Focus, see References in `help(Focus)`.
+
+    Attributes
+    ----------
+    m0 (float): The m0 value, e.g. the max of the evidence for no-change when the component function was introduced.
+    theta0 (float): The true pre-change parameter, in case this is known.
+    """
+    def __init__(self, st, tau, m0, theta0):
+        super().__init__(st, tau, theta0)
+        self.m0 = m0
 
 
     def argmax(self, cs):
@@ -70,7 +87,7 @@ class CompFunc:
         return self.eval(self.argmax(cs), cs)
 
 
-class GaussianClass(CompFunc):
+class GaussianClass(UnivariateCompFunc):
     """
     This function represents a Gaussian component function. For more details, see `help(CompFunc)`.
     """
@@ -99,7 +116,7 @@ def Gaussian(loc=None):
     """
     return lambda st, tau, m0: GaussianClass(st, tau, m0, loc)
     
-class BernoulliClass(CompFunc):
+class BernoulliClass(UnivariateCompFunc):
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
@@ -135,7 +152,7 @@ def Bernoulli(p=None):
     return lambda st, tau, m0 : BernoulliClass(st, tau, m0, p)
 
 
-class PoissonClass(CompFunc):
+class PoissonClass(UnivariateCompFunc):
     def eval(self, x, cs):
         c = cs.n - self.tau
         s = cs.sn - self.st
@@ -163,7 +180,7 @@ def Poisson(lam=None):
     """
     return lambda st, tau, m0 : PoissonClass(st, tau, m0, lam)
 
-class GammaClass(CompFunc):
+class GammaClass(UnivariateCompFunc):
     def __init__(self, st, tau, m0, theta0, shape):
         super().__init__(st, tau, m0, theta0)
         self.shape = shape
@@ -545,3 +562,22 @@ class NPFocus:
         max_stat, max_stat_changepoint = max(stats_changepoints, key=lambda x: x[0])
 
         return {"stopping_time": max_stat_changepoint["stopping_time"], "changepoint": max_stat_changepoint["changepoint"], "max_stat": max_stat}
+
+
+# This part is for testing purposes
+if __name__ == "__main__":
+  import numpy as np
+
+  np.random.seed(0)
+  Y = np.concatenate((np.random.normal(loc=0.0, scale=1.0, size=5000), np.random.normal(loc=10.0, scale=1.0, size=5000)))
+
+  # Assuming Focus and Gaussian classes are defined elsewhere (replace with your implementation)
+  detector = Focus(Gaussian())
+  threshold = 10.0
+  for y in Y:
+      detector.update(y)
+      if detector.statistic() >= threshold:
+          break
+
+  result = detector.changepoint()
+  print(f"We detected a changepoint at time {result['stopping_time']}.")
