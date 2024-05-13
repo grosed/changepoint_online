@@ -39,7 +39,7 @@ class MDFocus:
 
     """
 
-    def __init__(self, comp_func) :
+    def __init__(self, comp_func, pruning_params = (2, 1)) :
         """
         Focus(comp_func)
 
@@ -63,6 +63,8 @@ class MDFocus:
         self.cs = MDFocus._CUSUM()
         self.q = MDFocus._Cost(ps = []) # list storing the component functions
         self.comp_func = comp_func
+        self.pruning_in = None
+        self.pruning_params = pruning_params
 
     def statistic(self) :
 
@@ -82,14 +84,15 @@ class MDFocus:
         
     def update(self, y):
 
-        # getting the dimention of y
-        p = y.shape[0]
+        # getting the dimention of y to initialize the first pruning
+        if self.cs.n == 0:
+            self.pruning_in = y.shape[0] + 2
 
         # updating the total cumulative sum and time step
         self.cs.n += 1
         self.cs.sn += y
 
-        if self.cs.n > p + 2:
+        if self.pruning_in == 0:
             # slower
             # points = np.array([np.append(p.tau, p.st) for p in self.q.ps])
 
@@ -97,11 +100,15 @@ class MDFocus:
             on_the_hull = ConvexHull(points)
 
             self.q.ps = self.q.ps[on_the_hull.vertices]
+            self.pruning_in = len(self.q.ps) * (self.pruning_params[0] - 1) + self.pruning_params[1]
 
         #self.qr.opt = Focus._get_max_all(self.qr, self.cs, m0)
         
         # add a new point
         self.q.ps = np.append(self.q.ps, self.comp_func(self.cs.sn.copy(), self.cs.n))
+
+        # update the pruning iteration counter
+        self.pruning_in -= 1
 
         
 
@@ -166,7 +173,7 @@ if __name__ == "__main__":
   Y = np.concatenate((Y_pre, Y_post))
 
   # Assuming Focus and Gaussian classes are defined elsewhere (replace with your implementation)
-  detector = MDFocus(MDGaussian())
+  detector = MDFocus(MDGaussian(), pruning_params = (3, 10))
   threshold = 10.0
   t = time.perf_counter()
   for y in Y:
