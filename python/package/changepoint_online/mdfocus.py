@@ -6,14 +6,12 @@ class MDGaussianClass(CompFunc):
     """
     This function represents a Multidimentional Gaussian component function. For more details, see `help(CompFunc)`.
     """
-    def eval(self, x, cs):
-        c = cs.n - self.tau
-        s = cs.sn - self.st
+    def get_max(self, cs):
+        r_tau = cs.n - self.tau
+        r_st = cs.sn - self.st
 
-        pass
-
-        # if self.theta0 is None:
-        #     return -0.5 * c * x ** 2 + s * x + self.m0
+        if self.theta0 is None:
+            return +( np.sum(r_st / r_tau) + np.sum(self.st / self.tau) ) - np.sum(self.st / self.tau)
         # else:
         #     out = c * x ** 2 - 2 * s * x - (c * self.theta0 ** 2 - 2 * s * self.theta0)
         #     return -out / 2
@@ -68,19 +66,19 @@ class MDFocus:
 
     def statistic(self) :
 
-        return max(self.ql.opt, self.qr.opt)
+        return MDFocus._get_max_all(self.q, self.cs)
 
     def changepoint(self) :
-
-        def _argmax(x) :
-            return max(zip(x,range(len(x))))[1]
-        if self.ql.opt > self.qr.opt:
-            i = _argmax([p.get_max(self.cs) - 0.0 for p in self.ql.ps[:-1]])
-            most_likely_changepoint_location = self.ql.ps[i].tau
-        else:
-            i = _argmax([p.get_max(self.cs) - 0.0 for p in self.qr.ps[:-1]])
-            most_likely_changepoint_location = self.qr.ps[i].tau
-        return {"stopping_time": self.cs.n,"changepoint": most_likely_changepoint_location}
+        pass
+        # def _argmax(x) :
+        #     return max(zip(x,range(len(x))))[1]
+        # if self.ql.opt > self.qr.opt:
+        #     i = _argmax([p.get_max(self.cs) - 0.0 for p in self.ql.ps[:-1]])
+        #     most_likely_changepoint_location = self.ql.ps[i].tau
+        # else:
+        #     i = _argmax([p.get_max(self.cs) - 0.0 for p in self.qr.ps[:-1]])
+        #     most_likely_changepoint_location = self.qr.ps[i].tau
+        # return {"stopping_time": self.cs.n,"changepoint": most_likely_changepoint_location}
         
     def update(self, y):
 
@@ -93,16 +91,9 @@ class MDFocus:
         self.cs.sn += y
 
         if self.pruning_in == 0:
-            # slower
-            # points = np.array([np.append(p.tau, p.st) for p in self.q.ps])
+            self.q.ps = MDFocus._prune(self.q.ps)
 
-            points = np.column_stack([[p.tau for p in self.q.ps], np.array([p.st for p in self.q.ps])])
-            on_the_hull = ConvexHull(points)
-
-            self.q.ps = self.q.ps[on_the_hull.vertices]
             self.pruning_in = len(self.q.ps) * (self.pruning_params[0] - 1) + self.pruning_params[1]
-
-        #self.qr.opt = Focus._get_max_all(self.qr, self.cs, m0)
         
         # add a new point
         self.q.ps = np.append(self.q.ps, self.comp_func(self.cs.sn.copy(), self.cs.n))
@@ -110,10 +101,7 @@ class MDFocus:
         # update the pruning iteration counter
         self.pruning_in -= 1
 
-        
-
-
-
+    
     class _Cost:
         def __init__(self, ps, opt=-1.0):
             self.ps = ps  # a list containing the various pieces
@@ -123,25 +111,18 @@ class MDFocus:
             self.sn = sn
             self.n = n
 
-    def _prune(q, cs, side="right"):
-        i = len(q.ps)
-        if i <= 1:
-            return q
-        if side == "right":
-            def cond(q1, q2):
-                return q1.argmax(cs) <= q2.argmax(cs)
-        elif side == "left":
-            def cond(q1, q2):
-                return q1.argmax(cs) >= q2.argmax(cs)
-        while cond(q.ps[i - 1], q.ps[i - 2]):
-            i -= 1
-            if i == 1:
-                break
-        q.ps = q.ps[:i]
-        return q
+    def _prune(ps):
+        points = np.column_stack([[p.tau for p in ps], np.array([p.st for p in ps])])
+        on_the_hull = ConvexHull(points)
+
+        ps = ps[on_the_hull.vertices]
+        return ps
     
-    def _get_max_all(q, cs, m0):
-        return max(p.get_max(cs) - m0 for p in q.ps)
+    def _get_max_all(q, cs):
+        if len(q.ps[:-1]) != 0:
+            return max(p.get_max(cs) for p in q.ps[:-1])
+        else:
+            return 0.0
 
 
 
@@ -160,7 +141,7 @@ if __name__ == "__main__":
 
   # Sample sizes for pre-change and post-change periods
   size_pre = 5000
-  size_post = 5
+  size_post = 500
 
   # Generate pre-change data (independent samples for each dimension)
   Y_pre = np.random.normal(mean_pre, std_pre, size=(size_pre, 3))
@@ -173,13 +154,14 @@ if __name__ == "__main__":
   Y = np.concatenate((Y_pre, Y_post))
 
   # Assuming Focus and Gaussian classes are defined elsewhere (replace with your implementation)
-  detector = MDFocus(MDGaussian(), pruning_params = (3, 10))
-  threshold = 10.0
+  detector = MDFocus(MDGaussian(), pruning_params = (2, 1))
+  threshold = 15.0
   t = time.perf_counter()
   for y in Y:
       detector.update(y)
+      if detector.statistic() >= threshold:
+        break
   print(time.perf_counter() - t)
   print(len(detector.q.ps))
+  print(detector.cs.n)
 
-    #   if detector.statistic() >= threshold:
-    #       break
