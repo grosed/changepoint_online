@@ -11,7 +11,7 @@ class MDGaussianClass(CompFunc):
         r_st = cs.sn - self.st
 
         if self.theta0 is None:
-            return +( np.sum(r_st / r_tau) + np.sum(self.st / self.tau) ) - np.sum(self.st / self.tau)
+            return np.sum(r_st / r_tau) + np.sum(self.st / self.tau)# - np.sum(cs.sn / cs.n)
         # else:
         #     out = c * x ** 2 - 2 * s * x - (c * self.theta0 ** 2 - 2 * s * self.theta0)
         #     return -out / 2
@@ -63,7 +63,7 @@ class MDFocus:
         self.comp_func = comp_func
         self.pruning_in = None
         self.pruning_params = pruning_params
-
+        
     def statistic(self) :
 
         return MDFocus._get_max_all(self.q, self.cs)
