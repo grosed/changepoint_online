@@ -59,7 +59,10 @@ class MDFocus:
 
         """
         self.cs = MDFocus._CUSUM()
-        self.q = MDFocus._Cost(ps = []) # list storing the component functions
+        self.q = MDFocus._Cost(ps = comp_func(
+            np.array([]),
+            np.array([0])
+            )) # list storing the component functions
         self.comp_func = comp_func
         self.pruning_in = None
         self.pruning_params = pruning_params
@@ -82,9 +85,11 @@ class MDFocus:
         
     def update(self, y):
 
-        # getting the dimention of y to initialize the first pruning
+        # getting the dimention of y to initialize the first pruning and list of pieces
         if self.cs.n == 0:
             self.pruning_in = y.shape[0] + 2
+            self.q.ps.st = np.array([np.zeros(y.shape[0])])
+            
 
         # updating the total cumulative sum and time step
         self.cs.n += 1
@@ -93,10 +98,11 @@ class MDFocus:
         if self.pruning_in == 0:
             self.q.ps = MDFocus._prune(self.q.ps)
 
-            self.pruning_in = len(self.q.ps) * (self.pruning_params[0] - 1) + self.pruning_params[1]
+            self.pruning_in = len(self.q.ps.tau) * (self.pruning_params[0] - 1) + self.pruning_params[1]
         
         # add a new point
-        self.q.ps = np.append(self.q.ps, self.comp_func(self.cs.sn.copy(), self.cs.n))
+        self.q.ps.st = np.row_stack([self.q.ps.st, self.cs.sn.copy()])
+        self.q.ps.tau = np.append(self.q.ps.tau, self.cs.n)
 
         # update the pruning iteration counter
         self.pruning_in -= 1
@@ -112,10 +118,12 @@ class MDFocus:
             self.n = n
 
     def _prune(ps):
-        points = np.column_stack([[p.tau for p in ps], np.array([p.st for p in ps])])
+        points = np.column_stack([ps.tau, ps.st])
         on_the_hull = ConvexHull(points)
 
-        ps = ps[on_the_hull.vertices]
+        ps.tau = ps.tau[on_the_hull.vertices]
+        ps.st  = ps.st[on_the_hull.vertices]
+
         return ps
     
     def _get_max_all(q, cs):
@@ -159,9 +167,9 @@ if __name__ == "__main__":
   t = time.perf_counter()
   for y in Y:
       detector.update(y)
-      if detector.statistic() >= threshold:
-        break
+    #   if detector.statistic() >= threshold:
+    #     break
   print(time.perf_counter() - t)
-  print(len(detector.q.ps))
+  print(len(detector.q.ps.tau))
   print(detector.cs.n)
 
