@@ -7,14 +7,24 @@ class MDGaussianClass(CompFunc):
     This function represents a Multidimentional Gaussian component function. For more details, see `help(CompFunc)`.
     """
     def get_max(self, cs):
-        r_tau = cs.n - self.tau
-        r_st = cs.sn - self.st
 
         if self.theta0 is None:
-            return np.sum(r_st / r_tau) + np.sum(self.st / self.tau)# - np.sum(cs.sn / cs.n)
-        # else:
-        #     out = c * x ** 2 - 2 * s * x - (c * self.theta0 ** 2 - 2 * s * self.theta0)
-        #     return -out / 2
+            r_tau = cs.n - self.tau
+            r_st = cs.sn - self.st
+            right_cusum_row_sums = np.sum(r_st[:-1]**2, axis=1) / r_tau[:-1]
+            left_cusum_row_sums  = np.sum(self.st[1:]**2, axis=1) / self.tau[1:]
+            tot_cusum            = right_cusum_row_sums[0]
+
+
+            return left_cusum_row_sums[:-1] + right_cusum_row_sums[1:] - tot_cusum
+
+        else:
+            # TODO: fix centering with the theta0
+            r_tau = cs.n - self.tau
+            r_st = cs.sn - self.st
+            right_cusum_row_sums = np.sum(r_st[:-1]**2, axis=1) / r_tau[:-1]
+
+            return right_cusum_row_sums[1:]
         
 def MDGaussian(loc=None):
     """
@@ -127,11 +137,11 @@ class MDFocus:
         return ps
     
     def _get_max_all(q, cs):
-        if len(q.ps[:-1]) != 0:
-            return max(p.get_max(cs) for p in q.ps[:-1])
-        else:
+        if cs.n == 1:
             return 0.0
-
+        else:
+            locals = q.ps.get_max(cs)
+            return max(locals)
 
 
 if __name__ == "__main__":
@@ -163,12 +173,12 @@ if __name__ == "__main__":
 
   # Assuming Focus and Gaussian classes are defined elsewhere (replace with your implementation)
   detector = MDFocus(MDGaussian(), pruning_params = (2, 1))
-  threshold = 15.0
+  threshold = 50.0
   t = time.perf_counter()
   for y in Y:
       detector.update(y)
-    #   if detector.statistic() >= threshold:
-    #     break
+      if detector.statistic() >= threshold:
+        break
   print(time.perf_counter() - t)
   print(len(detector.q.ps.tau))
   print(detector.cs.n)
