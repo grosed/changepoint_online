@@ -21,7 +21,7 @@ class MDGaussianClass(CompFunc):
         else:
             # TODO: fix centering with the theta0
             r_tau = cs.n - self.tau
-            r_st = cs.sn - self.st
+            r_st = cs.sn - self.st - np.outer(r_tau, self.theta0)
             right_cusum_row_sums = np.sum(r_st[:-1]**2, axis=1) / r_tau[:-1]
 
             return right_cusum_row_sums[1:]
@@ -183,3 +183,14 @@ if __name__ == "__main__":
   print(len(detector.q.ps.tau))
   print(detector.cs.n)
 
+  # pre-change known 
+  detector = MDFocus(MDGaussian(loc=mean_pre), pruning_params = (2, 1))
+  threshold = 50.0
+  t = time.perf_counter()
+  for y in Y:
+      detector.update(y)
+      if detector.statistic() >= threshold:
+        break
+  print(time.perf_counter() - t)
+  print(len(detector.q.ps.tau))
+  print(detector.cs.n)
