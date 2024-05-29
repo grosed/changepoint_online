@@ -6,11 +6,14 @@
 - [Installation](#installation)
   - [using pip](#using-pip)
 - [Examples](#examples)
-  - [Simple Gaussian Change-in-mean](#simple-gaussian-change-in-mean)
+  - [Simple Univariate Gaussian
+    Change-in-mean](#simple-univariate-gaussian-change-in-mean)
   - [Change in one-parameter exponential family
     distributions](#change-in-one-parameter-exponential-family-distributions)
   - [Non-Parametric changepoint
     detection](#non-parametric-changepoint-detection)
+  - [Multivariate Gaussian
+    Change-in-mean](#multivariate-gaussian-change-in-mean)
   - [Real-data examples](#real-data-examples)
 - [License](#license)
 - [GitHub Repository](#github-repository)
@@ -52,7 +55,7 @@ possible values of the size of change (an infinitely dense grid).
 
 ## Examples
 
-### Simple Gaussian Change-in-mean
+### Simple Univariate Gaussian Change-in-mean
 
 ``` python
 from changepoint_online import Focus, Gaussian
@@ -173,6 +176,47 @@ print(changepoint_info["stopping_time"])
 ```
 
     5014
+
+### Multivariate Gaussian Change-in-mean
+
+``` python
+from changepoint_online import MDFocus, MDGaussian
+import numpy as np
+
+np.random.seed(123)
+
+# Define means and standard deviations for pre-change and post-change periods (independent dimensions)
+mean_pre = np.array([0.0, 0.0, 5.0])
+mean_post = np.array([1.0, 1.0, 4.5])
+
+std_pre = np.array([1.0, 1.0, 1.0])
+std_post = np.array([1.0, 1.0, 1.0])
+
+# Sample sizes for pre-change and post-change periods
+size_pre = 5000
+size_post = 500
+
+# Generate pre-change data (independent samples for each dimension)
+Y_pre = np.random.normal(mean_pre, size=(size_pre, 3))
+
+# Generate post-change data (independent samples for each dimension)
+Y_post = np.random.normal(mean_post, size=(size_post, 3))
+
+# Concatenate data with a changepoint in the middle
+changepoint = size_pre
+Y = np.concatenate((Y_pre, Y_post))
+
+# Assuming Focus and Gaussian classes are defined elsewhere (replace with your implementation)
+detector = MDFocus(MDGaussian(), pruning_params = (2, 1))
+threshold = 25
+for y in Y:
+    detector.update(y)
+    if detector.statistic() >= threshold:
+        break
+print(detector.changepoint())
+```
+
+    {'stopping_time': 5014, 'changepoint': 4999}
 
 ### Real-data examples
 

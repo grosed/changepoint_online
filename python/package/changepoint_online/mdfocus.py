@@ -15,7 +15,7 @@
 
 from scipy.spatial import ConvexHull
 import numpy as np
-from focus import CompFunc
+from .focus import CompFunc
 
 class MDGaussianClass(CompFunc):
     """
