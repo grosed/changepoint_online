@@ -145,52 +145,80 @@ class MDFocus:
 
 
 if __name__ == "__main__":
-  import numpy as np
-  import time
+    import numpy as np
+    import time
 
-  np.random.seed(123)
+    np.random.seed(123)
 
-  # Define means and standard deviations for pre-change and post-change periods (independent dimensions)
-  mean_pre = np.array([0.0, 0.0, 5.0])
-  mean_post = np.array([10.0, 10.0, 0.0])
+    # Define means and standard deviations for pre-change and post-change periods (independent dimensions)
+    mean_pre = np.array([0.0, 0.0, 5.0])
+    mean_post = np.array([10.0, 10.0, 0.0])
 
-  std_pre = np.array([1.0, 1.0, 1.0])
-  std_post = np.array([1.0, 1.0, 1.0])
+    std_pre = np.array([1.0, 1.0, 1.0])
+    std_post = np.array([1.0, 1.0, 1.0])
 
-  # Sample sizes for pre-change and post-change periods
-  size_pre = 5000
-  size_post = 500
+    # Sample sizes for pre-change and post-change periods
+    size_pre = 5000
+    size_post = 500
 
-  # Generate pre-change data (independent samples for each dimension)
-  Y_pre = np.random.normal(mean_pre, std_pre, size=(size_pre, 3))
+    # Generate pre-change data (independent samples for each dimension)
+    Y_pre = np.random.normal(mean_pre, std_pre, size=(size_pre, 3))
 
-  # Generate post-change data (independent samples for each dimension)
-  Y_post = np.random.normal(mean_post, std_post, size=(size_post, 3))
+    # Generate post-change data (independent samples for each dimension)
+    Y_post = np.random.normal(mean_post, std_post, size=(size_post, 3))
 
-  # Concatenate data with a changepoint in the middle
-  changepoint = size_pre
-  Y = np.concatenate((Y_pre, Y_post))
+    # Concatenate data with a changepoint in the middle
+    changepoint = size_pre
+    Y = np.concatenate((Y_pre, Y_post))
 
-  # Assuming Focus and Gaussian classes are defined elsewhere (replace with your implementation)
-  detector = MDFocus(MDGaussian(), pruning_params = (2, 1))
-  threshold = 50.0
-  t = time.perf_counter()
-  for y in Y:
-      detector.update(y)
-      if detector.statistic() >= threshold:
-        break
-  print(time.perf_counter() - t)
-  print(len(detector.q.ps.tau))
-  print(detector.cs.n)
+    # Assuming Focus and Gaussian classes are defined elsewhere (replace with your implementation)
+    detector = MDFocus(MDGaussian(), pruning_params = (2, 1))
+    threshold = 50.0
+    t = time.perf_counter()
+    for y in Y:
+        detector.update(y)
+        if detector.statistic() >= threshold:
+            break
+    print(time.perf_counter() - t)
+    print(len(detector.q.ps.tau))
+    print(detector.cs.n)
 
-  # pre-change known 
-  detector = MDFocus(MDGaussian(loc=mean_pre), pruning_params = (2, 1))
-  threshold = 50.0
-  t = time.perf_counter()
-  for y in Y:
-      detector.update(y)
-      if detector.statistic() >= threshold:
-        break
-  print(time.perf_counter() - t)
-  print(len(detector.q.ps.tau))
-  print(detector.cs.n)
+    # pre-change known 
+    detector = MDFocus(MDGaussian(loc=mean_pre), pruning_params = (2, 1))
+    threshold = 50.0
+    t = time.perf_counter()
+    for y in Y:
+        detector.update(y)
+        if detector.statistic() >= threshold:
+            break
+    print(time.perf_counter() - t)
+    print(len(detector.q.ps.tau))
+    print(detector.cs.n)
+
+
+    from focus import Focus, Gaussian
+    import numpy as np
+
+    np.random.seed(0)
+    Y = np.concatenate((np.random.normal(loc=0.0, scale=1.0, size=5000), np.random.normal(loc=10.0, scale=1.0, size=5000)))
+
+    t = time.perf_counter()
+    detector = Focus(Gaussian())
+    threshold = 10.0
+    for y in Y:
+        detector.update(y)
+        if detector.statistic() >= threshold:
+            break
+    print(time.perf_counter() - t)
+
+    detector = MDFocus(MDGaussian(), pruning_params = (5, 1))
+    threshold = 20.0
+    t = time.perf_counter()
+    Y_alt = [np.array([y]) for y in Y]
+    for y in Y_alt:
+        detector.update(y)
+        if detector.statistic() >= threshold:
+            break
+    print(time.perf_counter() - t)
+    print(len(detector.q.ps.tau))
+    print(detector.cs.n)
