@@ -50,7 +50,7 @@ Quick Example
     print(f"We detected a changepoint at time {result['stopping_time']}.")
     ```
 
-Copyright (C) 2023 Gaetano Romano, Daniel Grose
+Copyright (C) 2024 Gaetano Romano, Daniel Grose
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -69,6 +69,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/gpl-3.0.txt>.
 
 
 from .focus import Focus, Gaussian, Bernoulli, Poisson, Gamma, Exponential, NPFocus
+from .mdfocus import MDFocus, MDGaussian
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 __author__ = 'Gaetano Romano, Daniel Grose'

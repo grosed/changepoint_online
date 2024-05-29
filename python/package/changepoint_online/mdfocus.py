@@ -1,3 +1,18 @@
+# Copyright (C) 2024 Gaetano Romano, Daniel Grose
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/gpl-3.0.txt>.
+
 from scipy.spatial import ConvexHull
 import numpy as np
 from focus import CompFunc
@@ -28,12 +43,12 @@ class MDGaussianClass(CompFunc):
         
 def MDGaussian(loc=None):
     """
-    This function returns a function that creates an instance of the GaussianClass, for 
-    Gaussian change-in-mean.
+    This function returns a function that creates an instance of the MDGaussianClass, for 
+    Multivariate Gaussian change-in-mean.
 
     Parameters
     ----------
-    loc (float): The pre-change location (mean) parameter, if known. Defaults to None for pre-change mean unkown.
+    loc (float): The pre-change location (mean) parameter, if known. Defaults to None for pre-change mean unkown. Needs to be passed as a d-dimentional array.
 
     Returns
     -------
@@ -43,29 +58,95 @@ def MDGaussian(loc=None):
 
 class MDFocus:
     """
-    The MDFocus class implements the MDFocus method.
+    The MDFocus class implements the MDFocus method, an algorithm for detecting changes in data streams on multi-dimentional sequences
+    for a range of exponential family models.
 
+    For instance, MdFocus can detect changes-in-mean in a multivariate Gaussian data stream (white noise).
+    It can be applied to settings where either the pre-change parameter is known or unknown.
+
+    DISCLAIMER: Albeit the MDFocus algorithm shows an amortised cost of O((log(n)^p)/p!), this 
+    implementation is not technically online as for n->infty this code would inherently overflow. 
+    Whilist the method is fast enough for low dimentions, one need to recurr to an approximation in higher dimentions.
+    This is discussed in detail in the reference below.
+
+    Online Multivariate Changepoint Detection: Leveraging Links With Computational Geometry
+        L Pishchagina, G Romano, P Fearnhead, V Runge, G Rigaill
+   
+    Examples
+    --------
+    ```python
+    import numpy as np
+    import time
+
+    np.random.seed(123)
+
+    # Define means and standard deviations for pre-change and post-change periods (independent dimensions)
+    mean_pre = np.array([0.0, 0.0, 5.0])
+    mean_post = np.array([10.0, 10.0, 0.0])
+
+    std_pre = np.array([1.0, 1.0, 1.0])
+    std_post = np.array([1.0, 1.0, 1.0])
+
+    # Sample sizes for pre-change and post-change periods
+    size_pre = 5000
+    size_post = 500
+
+    # Generate pre-change data (independent samples for each dimension)
+    Y_pre = np.random.normal(mean_pre, std_pre, size=(size_pre, 3))
+
+    # Generate post-change data (independent samples for each dimension)
+    Y_post = np.random.normal(mean_post, std_post, size=(size_post, 3))
+
+    # Concatenate data with a changepoint in the middle
+    changepoint = size_pre
+    Y = np.concatenate((Y_pre, Y_post))
+
+    detector = MDFocus(MDGaussian())
+    threshold = 50.0
+    for y in Y:
+        detector.update(y)
+        if detector.statistic() >= threshold:
+            break
+    print(detector.cs.n)
+    ```
+
+
+    Attributes
+    ----------
+    cs: 
+        An instance of the `_CUSUM` class that keeps track of the cumulative sum and count.
+    q: 
+        An instance of the `_Cost` class, that keeps track of the cost functions associated with K changepoint candidates.
+    comp_func: 
+        The constructor for the component function given a specific distribution (e.g. MDGaussian).
+    pruning_in: 
+        Number of iterations before the pruning will start. As the pruning is based on QuickHull, the step in which MDFocus
+        will prune will result in a longer evaluation time. See __inir
+    pruning_params:
+        A tuple of parameters to control when initiate the pruning, defaults to (2, 1). See __init__ doc for more details.
     """
 
     def __init__(self, comp_func, pruning_params = (2, 1)) :
         """
-        Focus(comp_func)
+        MdFocus(comp_func)
 
-        Initializes the Focus detector.
+        Initializes the MdFocus detector.
 
         Parameters
         ----------
         comp_func: A constructor for the component function given an exponential family model to use for the change detection.
-                Currently implemented: Gaussian(), Bernoulli(), Poisson(), Gamma() or Exponential().
-                For more details, check documentation of each component function, e.g. `help(Gaussian)`.
+                Currently implemented: MDGaussian().
+                For more details, check documentation of each component function, e.g. `help(MDGaussian)`.
+        
+        pruning_params: A tuple of parameters to control when initiate the pruning, defaults to (2, 1).
+                If K is the number of candidate changepoints we are considering at the moment, and 
+                (a, b) are the two pruning parameters, we will prune every K * (a - 1) + b iterations.
+                Details in the paper.
 
         Returns
         -------
         MDFocus:
             An instance of class MDFocus, our changepoint detector.
-
-        Examples
-        --------
 
         """
         self.cs = MDFocus._CUSUM()
@@ -82,16 +163,29 @@ class MDFocus:
         return MDFocus._get_max_all(self.q, self.cs)
 
     def changepoint(self) :
-        pass
-        # def _argmax(x) :
-        #     return max(zip(x,range(len(x))))[1]
-        # if self.ql.opt > self.qr.opt:
-        #     i = _argmax([p.get_max(self.cs) - 0.0 for p in self.ql.ps[:-1]])
-        #     most_likely_changepoint_location = self.ql.ps[i].tau
-        # else:
-        #     i = _argmax([p.get_max(self.cs) - 0.0 for p in self.qr.ps[:-1]])
-        #     most_likely_changepoint_location = self.qr.ps[i].tau
-        # return {"stopping_time": self.cs.n,"changepoint": most_likely_changepoint_location}
+        """
+        changepoint()
+
+        Returns the most likely changepoint location.
+        
+
+        Parameters
+        -----
+        Null
+
+        Returns
+        -------
+        dict:
+            A dictionary containing the stopping time and the most likely changepoint location.
+        """        
+        def _argmax(x) :
+            return max(zip(x,range(len(x))))[1]
+        if self.cs.n == 1:
+            return 0
+        else:
+            locals = self.q.ps.get_max(self.cs)
+            index =  _argmax(locals)
+        return {"stopping_time": self.cs.n,"changepoint": self.q.ps.tau[index]}    
         
     def update(self, y):
 
@@ -146,13 +240,12 @@ class MDFocus:
 
 if __name__ == "__main__":
     import numpy as np
-    import time
 
     np.random.seed(123)
 
     # Define means and standard deviations for pre-change and post-change periods (independent dimensions)
     mean_pre = np.array([0.0, 0.0, 5.0])
-    mean_post = np.array([10.0, 10.0, 0.0])
+    mean_post = np.array([1.0, 1.0, 4.5])
 
     std_pre = np.array([1.0, 1.0, 1.0])
     std_post = np.array([1.0, 1.0, 1.0])
@@ -162,10 +255,10 @@ if __name__ == "__main__":
     size_post = 500
 
     # Generate pre-change data (independent samples for each dimension)
-    Y_pre = np.random.normal(mean_pre, std_pre, size=(size_pre, 3))
+    Y_pre = np.random.normal(mean_pre, size=(size_pre, 3))
 
     # Generate post-change data (independent samples for each dimension)
-    Y_post = np.random.normal(mean_post, std_post, size=(size_post, 3))
+    Y_post = np.random.normal(mean_post, size=(size_post, 3))
 
     # Concatenate data with a changepoint in the middle
     changepoint = size_pre
@@ -173,15 +266,12 @@ if __name__ == "__main__":
 
     # Assuming Focus and Gaussian classes are defined elsewhere (replace with your implementation)
     detector = MDFocus(MDGaussian(), pruning_params = (2, 1))
-    threshold = 50.0
-    t = time.perf_counter()
+    threshold = 25
     for y in Y:
         detector.update(y)
         if detector.statistic() >= threshold:
             break
-    print(time.perf_counter() - t)
-    print(len(detector.q.ps.tau))
-    print(detector.cs.n)
+    print(detector.changepoint())
 
     # pre-change known 
     detector = MDFocus(MDGaussian(loc=mean_pre), pruning_params = (2, 1))

@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Gaetano Romano, Daniel Grose
+# Copyright (C) 2024 Gaetano Romano, Daniel Grose
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,8 +29,8 @@ class CompFunc:
 
     Attributes
     ----------
-    st (float): Sum of the data from 1 to tau.
-    tau (float): Tau, point at which one piece was introduced.
+    st (float): Sum of the data from 1 to tau. In 1-d this is a double. In the multi-d this is a matrix of size Kxd, where d is the dimention, K is the number of candidate changepoints we are storing. 
+    tau (float): Tau, point at which one piece was introduced. In 1-d this is an integer. In the multi-d this is a vector of size K, where K is the number of candidate changepoints we are storing. 
     m0 (float): The m0 value, e.g. the max of the evidence for no-change when the component function was introduced.
     theta0 (float): The true pre-change parameter, in case this is known.
     """
