@@ -12,9 +12,12 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/gpl-3.0.txt>.
+try:
+    from scipy.spatial import ConvexHull
+    import numpy as np
+except ImportError:
+    raise ImportError("Please install scipy and numpy")
 
-from scipy.spatial import ConvexHull
-import numpy as np
 from .focus import CompFunc
 
 class MDGaussianClass(CompFunc):
@@ -185,7 +188,7 @@ class MDFocus:
         else:
             locals = self.q.ps.get_max(self.cs)
             index =  _argmax(locals)
-        return {"stopping_time": self.cs.n,"changepoint": self.q.ps.tau[index]}    
+        return {"stopping_time": self.cs.n,"changepoint": self.q.ps.tau[index]+1}    
         
     def update(self, y):
 

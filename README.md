@@ -216,7 +216,7 @@ for y in Y:
 print(detector.changepoint())
 ```
 
-    {'stopping_time': 5014, 'changepoint': 4999}
+    {'stopping_time': 5014, 'changepoint': 5000}
 
 ### Real-data examples
 
