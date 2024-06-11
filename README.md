@@ -189,9 +189,6 @@ np.random.seed(123)
 mean_pre = np.array([0.0, 0.0, 5.0])
 mean_post = np.array([1.0, 1.0, 4.5])
 
-std_pre = np.array([1.0, 1.0, 1.0])
-std_post = np.array([1.0, 1.0, 1.0])
-
 # Sample sizes for pre-change and post-change periods
 size_pre = 5000
 size_post = 500
@@ -276,6 +273,8 @@ For citing the methodologies:
 
 - Other Exponential Family detectors: (Ward et al. 2024)
 
+- Multi-dimentional FOCuS (Pishchagina et al. 2023)
+
 - NPFocus: (Romano, Eckley, and Fearnhead 2024)
 
 See references below.
@@ -284,6 +283,15 @@ See references below.
 
 <div id="refs" class="references csl-bib-body hanging-indent"
 entry-spacing="0">
+
+<div id="ref-pishchagina2023online" class="csl-entry">
+
+Pishchagina, Liudmila, Gaetano Romano, Paul Fearnhead, Vincent Runge,
+and Guillem Rigaill. 2023. “Online Multivariate Changepoint Detection:
+Leveraging Links with Computational Geometry.” *arXiv Preprint
+arXiv:2311.01174*.
+
+</div>
 
 <div id="ref-romano2024" class="csl-entry">
 

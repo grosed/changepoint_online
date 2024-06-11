@@ -161,9 +161,6 @@ np.random.seed(123)
 mean_pre = np.array([0.0, 0.0, 5.0])
 mean_post = np.array([1.0, 1.0, 4.5])
 
-std_pre = np.array([1.0, 1.0, 1.0])
-std_post = np.array([1.0, 1.0, 1.0])
-
 # Sample sizes for pre-change and post-change periods
 size_pre = 5000
 size_post = 500
@@ -230,6 +227,8 @@ For citing the methodologies:
 -   Gaussian FOCuS: [@romano2023fast]
 
 -   Other Exponential Family detectors: [@ward2024constant]
+
+-   Multi-dimentional FOCuS [@pishchagina2023online]
 
 -   NPFocus: [@romano2024]
 
