@@ -179,7 +179,8 @@ Y_post = np.random.normal(mean_post, size=(size_post, 3))
 changepoint = size_pre
 Y = np.concatenate((Y_pre, Y_post))
 
-# Assuming Focus and Gaussian classes are defined elsewhere (replace with your implementation)
+# Initialize the Gaussian detector 
+# (for change in mean known, as in univariate case, write MDGaussian(loc=mean_pre))
 detector = MDFocus(MDGaussian(), pruning_params = (2, 1))
 threshold = 25
 for y in Y:
@@ -215,7 +216,7 @@ Y_post = np.random.poisson(rate_post, size=(size_post, 3))
 changepoint = size_pre
 Y = np.concatenate((Y_pre, Y_post))
 
-# Assuming Focus and Poisson classes are defined elsewhere (replace with your implementation)
+# Initialize the Poisson detector
 detector = MDFocus(MDPoisson(), pruning_params = (2, 1))
 threshold = 45  # Adjust the threshold as needed for the Poisson distribution
 for y in Y:
