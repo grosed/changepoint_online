@@ -69,7 +69,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/gpl-3.0.txt>.
 
 
 from .focus import Focus, Gaussian, Bernoulli, Poisson, Gamma, Exponential, NPFocus
-from .mdfocus import MDFocus, MDGaussian
+from .mdfocus import MDFocus, MDGaussian, MDPoisson
 
 __version__ = '1.1.0'
 __author__ = 'Gaetano Romano, Daniel Grose'

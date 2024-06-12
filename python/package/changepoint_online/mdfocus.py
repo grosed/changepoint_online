@@ -37,7 +37,6 @@ class MDGaussianClass(CompFunc):
             return left_cusum_row_sums[:-1] + right_cusum_row_sums[1:] - tot_cusum
 
         else:
-            # TODO: fix centering with the theta0
             r_tau = cs.n - self.tau
             r_st = cs.sn - self.st - np.outer(r_tau, self.theta0)
             right_cusum_row_sums = np.sum(r_st[:-1]**2, axis=1) / r_tau[:-1]
@@ -58,6 +57,51 @@ def MDGaussian(loc=None):
     function: A function that takes three arguments (st, tau, m0) and returns an instance of GaussianClass.
     """
     return lambda st, tau: MDGaussianClass(st, tau, loc)
+
+class MDPoissonClass(CompFunc):
+    """
+    This function represents a Multidimentional Poisson component function. For more details, see `help(CompFunc)`.
+    """
+    def get_max(self, cs):
+
+        max_l = lambda st, tau: np.sum(- st + st * np.log(st / tau[:, np.newaxis]), axis=1)
+
+        if self.theta0 is None:
+            r_tau = cs.n - self.tau
+            r_st = cs.sn - self.st
+
+
+            right_cusum_row_sums = max_l(r_st[:-1], r_tau[:-1])
+            left_cusum_row_sums  = max_l(self.st[1:], self.tau[1:])
+            tot_cusum            = right_cusum_row_sums[0]
+
+
+            return left_cusum_row_sums[:-1] + right_cusum_row_sums[1:] - tot_cusum
+
+        else:
+            r_tau = cs.n - self.tau
+            r_st = cs.sn - self.st
+            right_cusum_row_sums = max_l(r_st[:-1], r_tau[:-1])
+
+            null = np.sum(- r_tau[:-1, np.newaxis] * self.theta0 + r_st[:-1] * np.log(self.theta0), axis=1)
+
+            return right_cusum_row_sums[1:] - null[1:]
+        
+def MDPoisson(lam=None):
+    """
+    This function returns a function that creates an instance of the MDGaussianClass, for 
+    Multivariate Gaussian change-in-mean.
+
+    Parameters
+    ----------
+    loc (float): The pre-change location (mean) parameter, if known. Defaults to None for pre-change mean unkown. Needs to be passed as a d-dimentional array.
+
+    Returns
+    -------
+    function: A function that takes three arguments (st, tau, m0) and returns an instance of GaussianClass.
+    """
+    return lambda st, tau: MDPoissonClass(st, tau, lam)
+
 
 class MDFocus:
     """

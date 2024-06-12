@@ -12,8 +12,7 @@
     distributions](#change-in-one-parameter-exponential-family-distributions)
   - [Non-Parametric changepoint
     detection](#non-parametric-changepoint-detection)
-  - [Multivariate Gaussian
-    Change-in-mean](#multivariate-gaussian-change-in-mean)
+  - [Multivariate Data](#multivariate-data)
   - [Real-data examples](#real-data-examples)
 - [License](#license)
 - [GitHub Repository](#github-repository)
@@ -177,7 +176,12 @@ print(changepoint_info["stopping_time"])
 
     5014
 
-### Multivariate Gaussian Change-in-mean
+### Multivariate Data
+
+It is possible to run a multivariate analysis via MDFocus by feeding, at
+each iteration, a `numpy` array.
+
+#### Gaussian Change-in-mean
 
 ``` python
 from changepoint_online import MDFocus, MDGaussian
@@ -214,6 +218,44 @@ print(detector.changepoint())
 ```
 
     {'stopping_time': 5014, 'changepoint': 5000}
+
+#### Poisson Change-in-rate
+
+``` python
+from changepoint_online import MDFocus, MDPoisson
+import numpy as np
+
+np.random.seed(123)
+
+# Define rates (lambda) for pre-change and post-change periods (independent dimensions)
+rate_pre = np.array([1.0, 2.0, 3.0])
+rate_post = np.array([2.0, 3.0, 4.0])
+
+# Sample sizes for pre-change and post-change periods
+size_pre = 5000
+size_post = 500
+
+# Generate pre-change data (independent samples for each dimension)
+Y_pre = np.random.poisson(rate_pre, size=(size_pre, 3))
+
+# Generate post-change data (independent samples for each dimension)
+Y_post = np.random.poisson(rate_post, size=(size_post, 3))
+
+# Concatenate data with a changepoint in the middle
+changepoint = size_pre
+Y = np.concatenate((Y_pre, Y_post))
+
+# Assuming Focus and Poisson classes are defined elsewhere (replace with your implementation)
+detector = MDFocus(MDPoisson(), pruning_params = (2, 1))
+threshold = 45  # Adjust the threshold as needed for the Poisson distribution
+for y in Y:
+    detector.update(y)
+    if detector.statistic() >= threshold:
+        break
+print(detector.changepoint())
+```
+
+    {'stopping_time': 5056, 'changepoint': 5000}
 
 ### Real-data examples
 
