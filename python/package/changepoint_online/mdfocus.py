@@ -19,6 +19,7 @@ except ImportError:
     raise ImportError("Please install scipy and numpy")
 
 from .focus import CompFunc
+import warnings
 
 class MDGaussianClass(CompFunc):
     """
@@ -103,6 +104,21 @@ def MDPoisson(lam=None):
     return lambda st, tau: MDPoissonClass(st, tau, lam)
 
 
+def get_2d_pruning_dimentions(p):
+    """
+    This function returns  with the index to prune on the 2-dimentional projections of the convex hull.
+    This function is reccomended for high dimentional data, where p>5. 
+
+    Parameters
+    ----------
+    p (int): The dimention (number of covariates) of the data. 
+
+    Returns
+    -------
+    numpy.array: an array of shape (p, 2)
+    """
+    return np.column_stack((np.arange(p, step = 2), (np.arange(p, step = 2) + 1) % (p)))
+
 class MDFocus:
     """
     The MDFocus class implements the MDFocus method, an algorithm for detecting changes in data streams on multi-dimentional sequences
@@ -173,7 +189,7 @@ class MDFocus:
         A tuple of parameters to control when initiate the pruning, defaults to (2, 1). See __init__ doc for more details.
     """
 
-    def __init__(self, comp_func, pruning_params = (2, 1)) :
+    def __init__(self, comp_func, pruning_params = (2, 1), pruning_dimensions = None) :
         """
         MdFocus(comp_func)
 
@@ -204,6 +220,7 @@ class MDFocus:
         self.comp_func = comp_func
         self.pruning_in = None
         self.pruning_params = pruning_params
+        self.dim_indexes = pruning_dimensions
         
     def statistic(self) :
 
@@ -240,6 +257,17 @@ class MDFocus:
         if self.cs.n == 0:
             self.pruning_in = y.shape[0] + 2
             self.q.ps.st = np.array([np.zeros(y.shape[0])])
+            if self.dim_indexes is None and y.shape[0] > 5:
+                warning_message = (
+                    "\033[91m"  # ANSI escape code for red text
+                    "High-dimensional data detected, without any approximation specified. "
+                    "This could result in a very high computational cost due to calculation "
+                    "of a high-dimensional convex hull. To run a high-dimensional approximation "
+                    "of the hull, please initialize the detector with an additional argument: "
+                    "pruning_dimensions = get_2d_pruning_dimensions(your_data_dimension_here)"
+                    "\033[0m"  # Reset ANSI escape codes
+                )
+                warnings.warn(warning_message, UserWarning)
             
 
         # updating the total cumulative sum and time step
@@ -247,7 +275,7 @@ class MDFocus:
         self.cs.sn += y
 
         if self.pruning_in == 0:
-            self.q.ps = MDFocus._prune(self.q.ps)
+            self.q.ps = self._prune(self.q.ps)
 
             self.pruning_in = len(self.q.ps.tau) * (self.pruning_params[0] - 1) + self.pruning_params[1]
         
@@ -268,12 +296,24 @@ class MDFocus:
             self.sn = sn
             self.n = n
 
-    def _prune(ps):
+    def _prune(self, ps):
         points = np.column_stack([ps.tau, ps.st])
-        on_the_hull = ConvexHull(points)
 
-        ps.tau = ps.tau[on_the_hull.vertices]
-        ps.st  = ps.st[on_the_hull.vertices]
+        if self.dim_indexes is None:
+            # this is the non-approximate version
+            on_the_hull = ConvexHull(points).vertices
+        else:
+            # this is the projection approximate version. 
+            on_the_hull = []
+
+            for i in self.dim_indexes:
+                hull = ConvexHull(points[:, np.append(0, i + 1)])
+                on_the_hull.extend(hull.vertices)
+
+            on_the_hull = np.unique(on_the_hull)        
+
+        ps.tau = ps.tau[on_the_hull]
+        ps.st  = ps.st[on_the_hull]
 
         return ps
     
