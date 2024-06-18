@@ -173,7 +173,7 @@ class MDFocus:
         A tuple of parameters to control when initiate the pruning, defaults to (2, 1). See __init__ doc for more details.
     """
 
-    def __init__(self, comp_func, pruning_params = (2, 1)) :
+    def __init__(self, comp_func, pruning_params = (2, 1), pruning_dimensions = None) :
         """
         MdFocus(comp_func)
 
@@ -204,6 +204,7 @@ class MDFocus:
         self.comp_func = comp_func
         self.pruning_in = None
         self.pruning_params = pruning_params
+        self.dim_indexes = pruning_dimensions
         
     def statistic(self) :
 
@@ -268,12 +269,22 @@ class MDFocus:
             self.sn = sn
             self.n = n
 
-    def _prune(ps):
+    def _prune(self, ps):
         points = np.column_stack([ps.tau, ps.st])
-        on_the_hull = ConvexHull(points)
 
-        ps.tau = ps.tau[on_the_hull.vertices]
-        ps.st  = ps.st[on_the_hull.vertices]
+        if self.dim_indexes is None:
+            on_the_hull = ConvexHull(points).vertices
+        else:
+            on_the_hull = []
+
+            for i in self.dim_indexes:
+                hull = ConvexHull(points[:, [0, i + 1]])
+                on_the_hull.extend(hull.vertices)
+
+            on_the_hull = np.unique(np.sort(on_the_hull))        
+
+        ps.tau = ps.tau[on_the_hull]
+        ps.st  = ps.st[on_the_hull]
 
         return ps
     
