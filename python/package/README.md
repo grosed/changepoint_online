@@ -16,6 +16,7 @@
   - [Real-data examples](#real-data-examples)
 - [License](#license)
 - [GitHub Repository](#github-repository)
+- [Contributors](#contributors)
 - [How to Cite This Work](#how-to-cite-this-work)
 - [References](#references)
 
@@ -51,6 +52,12 @@ possible values of the size of change (an infinitely dense grid).
 #### installing from github with pip
 
     python -m pip install 'git+https://github.com/grosed/changepoint_online/#egg=changepoint_online&subdirectory=python/package'
+
+#### Testing the package
+
+To run package tests:
+
+    python -m changepoint_online.tests.runtests
 
 ## Examples
 
@@ -297,12 +304,37 @@ with this program. If not, see
 Source files for the packages can be found at
 <https://github.com/grosed/changepoint_online>
 
+## Contributors
+
+- Idris A. Eckley: [email](mailto:i.eckley@lancaster.ac.uk) (**Author**)
+  (**Thesis Advisor**)
+
+- Paul Fearnhead: [email](mailto:p.fearnhead@lancaster.ac.uk)
+  (**Author**) (**Thesis Advisor**)
+
+- Daniel Grose: [email](mailto:dan.grose@lancaster.ac.uk) (**Author**)
+  (**Maintainer**) (**Creator**)
+
+- Liudmila Pishchagina:
+  [email](mailto:liudmila.pishchagina@univ-evry.fr) (**Author**)
+
+- Guillem Rigaill: [email](mailto:guillem.rigaill@inrae.fr) (**Author**)
+  (**Thesis Advisor**)
+
+- Gaetano Romano: [email](mailto:g.romano@lancaster.ac.uk) (**Author**)
+  (**Maintainer**) (**Creator**) (**Translator**)
+
+- Vincent Runge: [email](mailto:vincent.runge@univ-evry.fr) (**Author**)
+  (**Thesis Advisor**)
+
+- Kes Ward: [email](mailto:k.ward4@lancaster.ac.uk) (**Author**)
+
 ## How to Cite This Work
 
 A possible BibTeX entry for this package could be:
 
     @software{changepoint_online,
-      author       = {Daniel Grose, Gaetano Romano},
+      author       = {Idris A. Eckley, Paul Fearnhead, Daniel Grose, Liudmila Pishchagina, Guillem Rigaill, Gaetano Romano, Vincent Runge, Kes Ward},
       title        = {changepoint_online: A Collection of Methods for Online Changepoint Detection.},
       month        = Apr,
       year         = 2024,

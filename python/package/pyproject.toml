@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "changepoint_online"
 version = "1.1.0"
-authors = [
+maintainers = [
   { name="Daniel Grose", email="dan.grose@lancaster.ac.uk" },
   { name="Gaetano Romano", email="g.romano@lancaster.ac.uk" }
 ]
-maintainers = [
+authors = [
+  { name="Daniel Grose", email="dan.grose@lancaster.ac.uk"},
   { name="Idris A. Eckley", email="i.eckley@lancaster.ac.uk"},
   { name="Paul Fearnhead", email="p.fearnhead@lancaster.ac.uk"},
-  { name="Daniel Grose", email="dan.grose@lancaster.ac.uk"},
   { name="Liudmila Pishchagina", email="liudmila.pishchagina@univ-evry.fr"},
   { name="Guillem Rigaill", email="guillem.rigaill@inrae.fr"},
   { name="Gaetano Romano", email="g.romano@lancaster.ac.uk"},
