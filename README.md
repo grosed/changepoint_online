@@ -52,6 +52,12 @@ possible values of the size of change (an infinitely dense grid).
 
     python -m pip install 'git+https://github.com/grosed/changepoint_online/#egg=changepoint_online&subdirectory=python/package'
 
+#### Testing the package
+
+To run package tests:
+
+    python -m changepoint_online.tests.runtests
+
 ## Examples
 
 ### Simple Univariate Gaussian Change-in-mean
