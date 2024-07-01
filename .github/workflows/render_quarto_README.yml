@@ -17,6 +17,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: quarto-dev/quarto-actions/setup@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v3
       with:
@@ -29,12 +30,8 @@ jobs:
     - name: Install changepoint package
       run: |
         python -m pip install "./python/package/"
-  quarto-linux:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: quarto-dev/quarto-actions/setup@v2
     - run: |
         quarto --version        
     - name: Render Quarto Project
       run: |
-        quarto render ./generate_README_file.qmd
+        quarto render "./generate_README_file.qmd"
