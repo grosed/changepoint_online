@@ -10,8 +10,14 @@ authors = [
   { name="Gaetano Romano", email="g.romano@lancaster.ac.uk" }
 ]
 maintainers = [
-  { name="Daniel Grose", email="dan.grose@lancaster.ac.uk" },
-  { name="Gaetano Romano", email="g.romano@lancaster.ac.uk" }
+  { name="Idris A. Eckley", email="i.eckley@lancaster.ac.uk"},
+  { name="Paul Fearnhead", email="p.fearnhead@lancaster.ac.uk"},
+  { name="Daniel Grose", email="dan.grose@lancaster.ac.uk"},
+  { name="Liudmila Pishchagina", email="liudmila.pishchagina@univ-evry.fr"},
+  { name="Guillem Rigaill", email="guillem.rigaill@inrae.fr"},
+  { name="Gaetano Romano", email="g.romano@lancaster.ac.uk"},
+  { name="Vincent Runge", email="vincent.runge@univ-evry.fr"},
+  { name="Kes Ward", email="k.ward4@lancaster.ac.uk"},
 ]
 description = "A Collection of Methods for Online Changepoint Detection"
 readme = "README.md"
