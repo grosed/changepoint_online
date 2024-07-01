@@ -1,0 +1,4 @@
+- name: Render Quarto Project
+  uses: quarto-dev/quarto-actions/render@v2
+  with:
+    path: generate_README_file.qmd 
