@@ -36,3 +36,9 @@ jobs:
     - name: Render Quarto Project
       run: |
         quarto render "./generate_README_file.qmd"
+    - name: copy output to package readme
+      run: |
+        cp ./README.md ./python/package/README.md
+    - name: Auto commit changes
+      uses: stefanzweifel/git-auto-commit-action@v4
+
