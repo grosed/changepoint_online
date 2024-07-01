@@ -7,7 +7,11 @@ name = "changepoint_online"
 version = "1.1.0"
 authors = [
   { name="Daniel Grose", email="dan.grose@lancaster.ac.uk" },
-  { name="Gaetano Romano", email="g.romano@lancaster.ac.uk" },
+  { name="Gaetano Romano", email="g.romano@lancaster.ac.uk" }
+]
+maintainers = [
+  { name="Daniel Grose", email="dan.grose@lancaster.ac.uk" },
+  { name="Gaetano Romano", email="g.romano@lancaster.ac.uk" }
 ]
 description = "A Collection of Methods for Online Changepoint Detection"
 readme = "README.md"
@@ -23,5 +27,5 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/grosed/changepoint_online"
+homepage = "https://github.com/grosed/changepoint_online"
 
