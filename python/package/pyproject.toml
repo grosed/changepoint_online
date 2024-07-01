@@ -23,7 +23,7 @@ classifiers = [
 ]
 dependencies = [
     "scipy",
-    "numpy
+    "numpy"
 ]
 
 [project.urls]
