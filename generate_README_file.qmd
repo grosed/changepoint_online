@@ -23,8 +23,6 @@ The changepoint_online package provides efficient algorithms for detecting chang
 
 ## Installation
 
-### using pip
-
 #### installing from PyPI
 
 ```         
