@@ -2,8 +2,12 @@ name: Render README
 
 on:
   push:
+    paths:
+      - 'generate_README_file.qmd'
     branches: [ "main" ]
   pull_request:
+    paths:
+      - 'generate_README_file.qmd'
     branches: [ "main" ]
 
 jobs:
