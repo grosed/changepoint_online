@@ -70,7 +70,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/gpl-3.0.txt>.
 
 from .focus import Focus, Gaussian, Bernoulli, Poisson, Gamma, Exponential, NPFocus
 from .mdfocus import MDFocus, MDGaussian, MDPoisson, get_2d_pruning_dimentions
-from .nunc import nunc 
+from .nunc import nunc, nunc_default_quantiles
 
 __version__ = '1.1.1'
 __author__ = 'Gaetano Romano, Daniel Grose'
