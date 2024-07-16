@@ -5,7 +5,7 @@ Created on Tue Jul 16 13:39:42 2024
 @author: austine
 """
 
-from changepoint_online import Focus, Gaussian, Gamma, Poisson, Bernoulli, NPFocus, MDFocus, MDGaussian, MDPoisson, nunc
+from changepoint_online import Focus, Gaussian, Gamma, Poisson, Bernoulli, NPFocus, MDFocus, MDGaussian, MDPoisson, nunc, nunc_default_quantiles
 import numpy as np
 import unittest
 
