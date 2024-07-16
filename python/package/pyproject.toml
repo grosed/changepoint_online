@@ -29,7 +29,8 @@ classifiers = [
 ]
 dependencies = [
     "scipy",
-    "numpy"
+    "numpy",
+    "sortedcontainers",
 ]
 
 [project.urls]
