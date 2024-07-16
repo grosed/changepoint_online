@@ -214,7 +214,7 @@ class test_nunc(unittest.TestCase):
                break
 
        actual = detector.changepoint()
-       expected = {'stopping_time': 300, 'changepoint': 286, 'max_stat': 41.166820004265354}
+       expected = {'stopping_time': 300, 'changepoint': 286, 'max_cost': 41.166820004265354}
        self.assertEqual(expected['stopping_time'], actual['stopping_time'])
        self.assertEqual(expected['changepoint'], actual['changepoint'])
        self.assertAlmostEqual(expected['max_cost'], actual['max_cost'], places=6)
