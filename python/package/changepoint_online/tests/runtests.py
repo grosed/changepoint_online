@@ -1,4 +1,11 @@
-from changepoint_online import Focus, Gaussian, Gamma, Poisson, Bernoulli, NPFocus, MDFocus, MDGaussian, MDPoisson
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Jul 16 13:39:42 2024
+
+@author: austine
+"""
+
+from changepoint_online import Focus, Gaussian, Gamma, Poisson, Bernoulli, NPFocus, MDFocus, MDGaussian, MDPoisson, nunc
 import numpy as np
 import unittest
 
@@ -115,6 +122,7 @@ class test_nonparametric(unittest.TestCase):
 
 
 
+
 class test_multivariate(unittest.TestCase):
     def test_mvgaussian(self):
 
@@ -184,6 +192,30 @@ class test_multivariate(unittest.TestCase):
         actual = detector.changepoint()
 
         self.assertEqual(expected, actual)
+        
+class test_nunc(unittest.TestCase):
+    def test_nunc(self):
+        
+       np.random.seed(10)
+       # Generate data with change
+       X1 = np.random.normal(1, 1, 500)
+       X2 = np.random.normal(-2, 4, 500)
+       Y = np.concatenate((X1, X2))
+    
+       # Create and use NUNC detector
+       detector = nunc(300, 5, nunc_default_quantiles)
+    
+       stat_over_time = []
+    
+       for y in Y:
+           detector.update(y)
+           stat_over_time.append(detector.max_cost)
+           if detector.statistic() > 40:
+               break
+
+       actual = detector.changepoint()
+       expected = {'stopping_time': 300, 'changepoint': 286, 'max_stat': 41.166820004265354}
+       self.assertAlmostEqual(expected, actual, places=6)
 
 if __name__ == '__main__':
     unittest.main()
