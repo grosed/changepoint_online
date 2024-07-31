@@ -280,7 +280,7 @@ class MDFocus:
             self.pruning_in = len(self.q.ps.tau) * (self.pruning_params[0] - 1) + self.pruning_params[1]
         
         # add a new point
-        self.q.ps.st = np.row_stack([self.q.ps.st, self.cs.sn.copy()])
+        self.q.ps.st = np.vstack([self.q.ps.st, self.cs.sn.copy()])
         self.q.ps.tau = np.append(self.q.ps.tau, self.cs.n)
 
         # update the pruning iteration counter
