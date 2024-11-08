@@ -85,7 +85,7 @@ class nunc:
     
     NUNC detects changes inside a sliding window of data by using a likelihood
     ratio test to determine when the distribution of the window segmented into
-    two pieces (at the changepoint) offers a signficantly better fit to the 
+    two pieces (at the changepoint) offers a significantly better fit to the 
     data than a single distribution. The test aggregates across num_quantiles
     quantiles of the empirical CDF.
     
@@ -166,12 +166,12 @@ class nunc:
    ---------
     
    ```python
-   from changepoint_online import nunc
+   from changepoint_online.nunc import nunc, nunc_default_quantiles
    import numpy as np
    
    np.random.seed(1)
    # Generate data with change
-   X1 = np.random.normal(1, 1, 5000)
+   X1 = np.random.normal(1, 1, 3000)
    X2 = np.random.normal(-2, 4, 5000)
    Y = np.concatenate((X1, X2))
 
@@ -203,7 +203,7 @@ class nunc:
    #data stream starting from the beginning:
        
    import numpy as np
-   from changepoint_online import nunc
+   from changepoint_online.nunc import nunc, nunc_default_quantiles
    
    np.random.seed(10)
    # Generate data with change and random walk component
@@ -245,7 +245,7 @@ class nunc:
 
    #Here we show how to detect a change using fixed quantiles:
    
-   from changepoint_online import nunc
+   from changepoint_online.nunc import nunc, nunc_default_quantiles
    import numpy as np
    
    np.random.seed(10)

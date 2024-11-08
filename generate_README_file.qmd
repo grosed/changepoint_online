@@ -254,7 +254,42 @@ You should have received a copy of the GNU General Public License along with thi
 
 Source files for the packages can be found at <https://github.com/grosed/changepoint_online>
 
+## Experimental
+
+The package includes the `nunc` algorithm for non-parametric changepoint detectino from @austin2023online as an experimental function. 
+It is possible to call `nunc` as:
+
+```{python}
+from changepoint_online.nunc import nunc, nunc_default_quantiles
+import numpy as np
+
+np.random.seed(1)
+# Generate data with change
+X1 = np.random.normal(1, 1, 3000)
+X2 = np.random.normal(-2, 4, 5000)
+Y = np.concatenate((X1, X2))
+
+# Create and use NUNC detector
+detector = nunc(300, 5, nunc_default_quantiles)
+
+stat_over_time = []
+
+for y in Y:
+    detector.update(y)
+    stat_over_time.append(detector.max_cost)
+    if detector.statistic() > 30:
+        break
+
+
+changepoint_info = detector.changepoint()
+
+print(f"Output information:\n{changepoint_info}")
+```
+
+
 ## Contributors 
+
+-   Austin Eduard:  [email](mailto:e.austin@lancaster.ac.uk) (**Author**) (**Maintainer**)
 
 -   Idris A. Eckley: [email](mailto:i.eckley@lancaster.ac.uk) (**Author**) (**Thesis Advisor**)
 
