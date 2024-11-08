@@ -4,7 +4,6 @@
 - [**A Collection of Methods for Online Changepoint
   Detection**](#a-collection-of-methods-for-online-changepoint-detection)
 - [Installation](#installation)
-  - [using pip](#using-pip)
 - [Examples](#examples)
   - [Simple Univariate Gaussian
     Change-in-mean](#simple-univariate-gaussian-change-in-mean)
@@ -16,6 +15,7 @@
   - [Real-data examples](#real-data-examples)
 - [License](#license)
 - [GitHub Repository](#github-repository)
+- [Experimental](#experimental)
 - [Contributors](#contributors)
 - [How to Cite This Work](#how-to-cite-this-work)
 - [References](#references)
@@ -42,8 +42,6 @@ possible values of the size of change (an infinitely dense grid).
   changes (such as increases or decreases in parameter values).
 
 ## Installation
-
-### using pip
 
 #### installing from PyPI
 
@@ -304,7 +302,46 @@ with this program. If not, see
 Source files for the packages can be found at
 <https://github.com/grosed/changepoint_online>
 
+## Experimental
+
+The package includes the `nunc` algorithm for non-parametric changepoint
+detectino from Austin et al. (2023) as an experimental function. It is
+possible to call `nunc` as:
+
+``` python
+from changepoint_online.nunc import nunc, nunc_default_quantiles
+import numpy as np
+
+np.random.seed(1)
+# Generate data with change
+X1 = np.random.normal(1, 1, 3000)
+X2 = np.random.normal(-2, 4, 5000)
+Y = np.concatenate((X1, X2))
+
+# Create and use NUNC detector
+detector = nunc(300, 5, nunc_default_quantiles)
+
+stat_over_time = []
+
+for y in Y:
+    detector.update(y)
+    stat_over_time.append(detector.max_cost)
+    if detector.statistic() > 30:
+        break
+
+
+changepoint_info = detector.changepoint()
+
+print(f"Output information:\n{changepoint_info}")
+```
+
+    Output information:
+    {'stopping_time': 300, 'changepoint': 284, 'max_cost': 31.492069041110202}
+
 ## Contributors
+
+- Austin Eduard: [email](mailto:e.austin@lancaster.ac.uk) (**Author**)
+  (**Maintainer**)
 
 - Idris A. Eckley: [email](mailto:i.eckley@lancaster.ac.uk) (**Author**)
   (**Thesis Advisor**)
@@ -358,6 +395,15 @@ See references below.
 
 <div id="refs" class="references csl-bib-body hanging-indent"
 entry-spacing="0">
+
+<div id="ref-austin2023online" class="csl-entry">
+
+Austin, Edward, Gaetano Romano, Idris A Eckley, and Paul Fearnhead.
+2023. “Online Non-Parametric Changepoint Detection with Application to
+Monitoring Operational Performance of Network Devices.” *Computational
+Statistics & Data Analysis* 177: 107551.
+
+</div>
 
 <div id="ref-pishchagina2023online" class="csl-entry">
 

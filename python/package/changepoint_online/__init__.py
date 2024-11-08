@@ -72,5 +72,5 @@ from .focus import Focus, Gaussian, Bernoulli, Poisson, Gamma, Exponential, NPFo
 from .mdfocus import MDFocus, MDGaussian, MDPoisson, get_2d_pruning_dimentions
 from .nunc import nunc, nunc_default_quantiles
 
-__version__ = '1.1.2'
+__version__ = '1.2.0'
 __author__ = 'Gaetano Romano, Daniel Grose'
