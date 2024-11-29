@@ -10,6 +10,7 @@ maintainers = [
   { name="Gaetano Romano", email="g.romano@lancaster.ac.uk" }
 ]
 authors = [
+  { name="Edward Austin", email="e.austin@lancaster.ac.uk"},
   { name="Daniel Grose", email="dan.grose@lancaster.ac.uk"},
   { name="Idris A. Eckley", email="i.eckley@lancaster.ac.uk"},
   { name="Paul Fearnhead", email="p.fearnhead@lancaster.ac.uk"},
@@ -19,7 +20,7 @@ authors = [
   { name="Vincent Runge", email="vincent.runge@univ-evry.fr"},
   { name="Kes Ward", email="k.ward4@lancaster.ac.uk"},
 ]
-description = "A Collection of Methods for Online Changepoint Detection"
+description = "A Collection of Online Methods for Changepoint and Anomaly Detection"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
