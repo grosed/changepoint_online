@@ -371,11 +371,11 @@ print(f"Output information:\n{changepoint_info}")
 A possible BibTeX entry for this package could be:
 
     @software{changepoint_online,
-      author       = {Idris A. Eckley, Paul Fearnhead, Daniel Grose, Liudmila Pishchagina, Guillem Rigaill, Gaetano Romano, Vincent Runge, Kes Ward},
+      author       = {Gaetano Romano, Daniel Grose, Kes Ward, Austin Edward, Liudmila Pishchagina, Guillem Rigaill, Vincent Runge, Paul Fearnhead, Idris A. Eckley},
       title        = {changepoint_online: A Collection of Methods for Online Changepoint Detection.},
       month        = Apr,
       year         = 2024,
-      version      = {v1.0.0},
+      version      = {v1.2.1},
       url          = {https://https://github.com/grosed/changepoint_online}
     }
 
@@ -388,6 +388,8 @@ For citing the methodologies:
 - Multi-dimentional FOCuS (Pishchagina et al. 2023)
 
 - NPFocus: (Romano, Eckley, and Fearnhead 2024)
+
+- NUNC: (Austin et al. 2023)
 
 See references below.
 
