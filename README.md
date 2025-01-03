@@ -340,17 +340,16 @@ print(f"Output information:\n{changepoint_info}")
 
 ## Contributors
 
-- Austin Eduard: [email](mailto:e.austin@lancaster.ac.uk) (**Author**)
-  (**Maintainer**)
-
-- Idris A. Eckley: [email](mailto:i.eckley@lancaster.ac.uk) (**Author**)
-  (**Thesis Advisor**)
-
-- Paul Fearnhead: [email](mailto:p.fearnhead@lancaster.ac.uk)
-  (**Author**) (**Thesis Advisor**)
+- Gaetano Romano: [email](mailto:g.romano@lancaster.ac.uk) (**Author**)
+  (**Maintainer**) (**Creator**) (**Translator**)
 
 - Daniel Grose: [email](mailto:dan.grose@lancaster.ac.uk) (**Author**)
   (**Maintainer**) (**Creator**)
+
+- Kes Ward: [email](mailto:k.ward4@lancaster.ac.uk) (**Author**)
+
+- Austin Edward: [email](mailto:e.austin@lancaster.ac.uk) (**Author**)
+  (**Maintainer**)
 
 - Liudmila Pishchagina:
   [email](mailto:liudmila.pishchagina@univ-evry.fr) (**Author**)
@@ -358,24 +357,25 @@ print(f"Output information:\n{changepoint_info}")
 - Guillem Rigaill: [email](mailto:guillem.rigaill@inrae.fr) (**Author**)
   (**Thesis Advisor**)
 
-- Gaetano Romano: [email](mailto:g.romano@lancaster.ac.uk) (**Author**)
-  (**Maintainer**) (**Creator**) (**Translator**)
-
 - Vincent Runge: [email](mailto:vincent.runge@univ-evry.fr) (**Author**)
   (**Thesis Advisor**)
 
-- Kes Ward: [email](mailto:k.ward4@lancaster.ac.uk) (**Author**)
+- Paul Fearnhead: [email](mailto:p.fearnhead@lancaster.ac.uk)
+  (**Author**) (**Thesis Advisor**)
+
+- Idris A. Eckley: [email](mailto:i.eckley@lancaster.ac.uk) (**Author**)
+  (**Thesis Advisor**)
 
 ## How to Cite This Work
 
 A possible BibTeX entry for this package could be:
 
     @software{changepoint_online,
-      author       = {Idris A. Eckley, Paul Fearnhead, Daniel Grose, Liudmila Pishchagina, Guillem Rigaill, Gaetano Romano, Vincent Runge, Kes Ward},
+      author       = {Gaetano Romano, Daniel Grose, Kes Ward, Austin Edward, Liudmila Pishchagina, Guillem Rigaill, Vincent Runge, Paul Fearnhead, Idris A. Eckley},
       title        = {changepoint_online: A Collection of Methods for Online Changepoint Detection.},
       month        = Apr,
       year         = 2024,
-      version      = {v1.0.0},
+      version      = {v1.2.1},
       url          = {https://https://github.com/grosed/changepoint_online}
     }
 
@@ -388,6 +388,8 @@ For citing the methodologies:
 - Multi-dimentional FOCuS (Pishchagina et al. 2023)
 
 - NPFocus: (Romano, Eckley, and Fearnhead 2024)
+
+- NUNC: (Austin et al. 2023)
 
 See references below.
 
