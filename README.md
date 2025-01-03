@@ -340,17 +340,16 @@ print(f"Output information:\n{changepoint_info}")
 
 ## Contributors
 
-- Austin Eduard: [email](mailto:e.austin@lancaster.ac.uk) (**Author**)
-  (**Maintainer**)
-
-- Idris A. Eckley: [email](mailto:i.eckley@lancaster.ac.uk) (**Author**)
-  (**Thesis Advisor**)
-
-- Paul Fearnhead: [email](mailto:p.fearnhead@lancaster.ac.uk)
-  (**Author**) (**Thesis Advisor**)
+- Gaetano Romano: [email](mailto:g.romano@lancaster.ac.uk) (**Author**)
+  (**Maintainer**) (**Creator**) (**Translator**)
 
 - Daniel Grose: [email](mailto:dan.grose@lancaster.ac.uk) (**Author**)
   (**Maintainer**) (**Creator**)
+
+- Kes Ward: [email](mailto:k.ward4@lancaster.ac.uk) (**Author**)
+
+- Austin Edward: [email](mailto:e.austin@lancaster.ac.uk) (**Author**)
+  (**Maintainer**)
 
 - Liudmila Pishchagina:
   [email](mailto:liudmila.pishchagina@univ-evry.fr) (**Author**)
@@ -358,13 +357,14 @@ print(f"Output information:\n{changepoint_info}")
 - Guillem Rigaill: [email](mailto:guillem.rigaill@inrae.fr) (**Author**)
   (**Thesis Advisor**)
 
-- Gaetano Romano: [email](mailto:g.romano@lancaster.ac.uk) (**Author**)
-  (**Maintainer**) (**Creator**) (**Translator**)
-
 - Vincent Runge: [email](mailto:vincent.runge@univ-evry.fr) (**Author**)
   (**Thesis Advisor**)
 
-- Kes Ward: [email](mailto:k.ward4@lancaster.ac.uk) (**Author**)
+- Paul Fearnhead: [email](mailto:p.fearnhead@lancaster.ac.uk)
+  (**Author**) (**Thesis Advisor**)
+
+- Idris A. Eckley: [email](mailto:i.eckley@lancaster.ac.uk) (**Author**)
+  (**Thesis Advisor**)
 
 ## How to Cite This Work
 
