@@ -567,17 +567,28 @@ class NPFocus:
 # This part is for testing purposes
 if __name__ == "__main__":
   import numpy as np
+  import matplotlib.pyplot as plt
 
   np.random.seed(0)
-  Y = np.concatenate((np.random.normal(loc=0.0, scale=1.0, size=5000), np.random.normal(loc=10.0, scale=1.0, size=5000)))
+  np.random.seed(0)
+  data = np.concatenate((np.random.normal(0, 1, 200), np.random.normal(3.5, 1, 200)))
 
   # Assuming Focus and Gaussian classes are defined elsewhere (replace with your implementation)
-  detector = Focus(Gaussian())
-  threshold = 10.0
-  for y in Y:
-      detector.update(y)
-      if detector.statistic() >= threshold:
-          break
+  detector = Focus(Gaussian(), side="right")
 
-  result = detector.changepoint()
-  print(f"We detected a changepoint at time {result['stopping_time']}.")
+  # create a vector to store the statistics
+  uni_stat_trace = []
+
+
+  threshold = 10.0
+  for y in data:
+      detector.update(y)
+      uni_stat_trace.append(detector.statistic())
+
+  plt.figure()
+  plt.plot(np.arange(1, len(uni_stat_trace) + 1), uni_stat_trace)
+  plt.title("Univariate statistic over time")
+  plt.xlabel("n")
+  plt.ylabel("statistic")
+  plt.grid(True)
+  plt.tight_layout()
