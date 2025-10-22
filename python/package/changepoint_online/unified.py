@@ -14,11 +14,6 @@ class CUSUM:
     n: int = 0
     theta0: any = None
 
-    # Return the initial candidate dict used by Detector at construction-time.
-    # Subclasses may return a list of candidates (e.g., two-side returns two).
-    def initial_candidate(self):
-        st_val = 0.0 if not isinstance(self.sn, np.ndarray) else np.array(self.sn)
-        return {"st": st_val, "tau": int(self.n), "theta0": self.theta0}
 
     # Create the new candidate(s) representing the current state (after an update).
     # Return a dict (single candidate) or a list of dicts (multiple candidates).
@@ -63,11 +58,6 @@ class OneSideUnivariateCUSUM(CUSUM):
             raise ValueError("side must be 'right' or 'left'")
         self.side = side
 
-    def initial_candidate(self):
-        # include side marker for clarity
-        base = super().initial_candidate()
-        base["side"] = self.side
-        return base
 
     def new_candidate(self):
         base = super().new_candidate()
@@ -142,9 +132,6 @@ class UnivariateCUSUM(CUSUM):
         self.right = OneSideUnivariateCUSUM(theta0=theta0, sn=sn, n=n, side="right")
         self.left  = OneSideUnivariateCUSUM(theta0=left_theta0, sn=sn, n=n, side="left")
 
-    def initial_candidate(self):
-        # return list of two side-marked candidates
-        return [self.right.initial_candidate(), self.left.initial_candidate()]
 
     def new_candidate(self):
         # return a list of two new candidates (right and left) for current time
@@ -344,14 +331,14 @@ class Detector:
     def __init__(self, cs: CUSUM, compute_costs_fn):
         if not isinstance(cs, CUSUM):
             raise TypeError("cs must be an instance of CUSUM (or subclass).")
-        initial = cs.initial_candidate()
+        initial = cs.new_candidate()
         if isinstance(initial, dict):
             self.pieces = [dict(initial)]
         elif isinstance(initial, list):
             # copy list of candidate dicts
             self.pieces = [dict(x) for x in initial]
         else:
-            raise RuntimeError("cs.initial_candidate() must return a candidate dict or a list of candidate dicts.")
+            raise RuntimeError("cs.new_candidate() must return a candidate dict or a list of candidate dicts.")
 
         # store CUSUM instance and cost function
         self.cs = cs
@@ -415,42 +402,12 @@ class Detector:
 # -------------------------
 if __name__ == "__main__":
     np.random.seed(0)
-
-    # data = np.concatenate((np.random.normal(0, 1, 200), np.random.normal(3.5, 1, 200)))
-
-    # # --- One-side Univariate Gaussian example (previous univariate behavior) ---
-    # cs_one = OneSideUnivariateCUSUM(theta0=None)                # one-side CUSUM (right)
-    # detector_one = Detector(cs_one, compute_costs_uni_gaussian)
-
-    # one_stat_trace = []
-    # one_cp_trace = []
-    # for y in data:
-    #     detector_one.update(float(y))
-    #     one_stat_trace.append(detector_one.statistic())
-    #     cp = detector_one.changepoint().get("changepoint", None)
-    #     one_cp_trace.append(np.nan if cp is None else cp)
-
-    # # --- Two-side Univariate Gaussian example ---
-    # # Use wrapper so we can reuse the same univariate cost fn for both sides
-    # two_cost_fn = make_two_sided_cost_fn(compute_costs_uni_gaussian)
-    # cs_two = UnivariateCUSUM(theta0=None)
-    # detector_two = Detector(cs_two, two_cost_fn)
-
-    # two_stat_trace = []
-    # two_cp_trace = []
-    # for y in data:
-    #     detector_two.update(float(y))
-    #     two_stat_trace.append(detector_two.statistic())
-    #     cp = detector_two.changepoint().get("changepoint", None)
-    #     two_cp_trace.append(np.nan if cp is None else cp)
-
     # --- Multivariate Gaussian example ---
     D = 3
     # multivariate CUSUM: start scalar sn=0.0; will convert on first vector update
     cs_multi = MultivariateCUSUM(theta0=None)
-    detector_multi = Detector(cs_multi, compute_costs_multi_gaussian)
+    detector_multi = Detector(cs_multi, compute_costs_gaussian)
 
-    detector_multi_v2 = Detector(cs_multi, compute_costs_multi_gaussian_v2)
 
     np.random.seed(0)
     Y_pre = np.random.normal(0.0, 1.0, size=(100, D))
@@ -466,12 +423,9 @@ if __name__ == "__main__":
         multi_cp_trace.append(np.nan if cp is None else cp)
 
         # update v2 detector as well
-        detector_multi_v2.update(y)
         # compare the two statistics
-        stat_v2 = detector_multi_v2.statistic()
         stat_v1 = detector_multi.statistic()
-        if not np.isclose(stat_v1, stat_v2):
-            print(f"Discrepancy at n={detector_multi.cs.n}: v1 stat={stat_v1}, v2 stat={stat_v2}")
+
 
     
 
@@ -490,15 +444,3 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid()
     plt.show() 
-
-    # plot the one-side and two-side univariate cusums statistics over time
-    plt.figure(figsize=(12, 8))
-    plt.plot(one_stat_trace, label="One-Side Univariate CUSUM Statistic",   color="green")
-    plt.plot(two_stat_trace, label="Two-Side Univariate CUSUM Statistic", color="orange")
-    plt.axvline(x=200, color="red", linestyle="--", label="True Change Point")
-    plt.title("Univariate CUSUM Statistics Over Time")
-    plt.xlabel("Time")
-    plt.ylabel("CUSUM Statistic")
-    plt.legend()
-    plt.grid()
-    plt.show()
