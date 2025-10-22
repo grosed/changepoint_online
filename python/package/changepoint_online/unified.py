@@ -135,11 +135,12 @@ class UnivariateCUSUM(CUSUM):
     """
 
     def __init__(self, theta0=None, sn=0.0, n=0, prune_dim=None):
-        # We still set sn and n at the top-level for compatibility, but internal sides will be used.
         super().__init__(sn=sn, n=n, theta0=theta0)
-        # create internal side-specific CUSUMs; they will be updated with y and -y respectively
+        # only negate if theta0 provided
+        left_theta0 = -theta0 if theta0 is not None else None
+        # create internal side-specific CUSUMs with correct per-side theta0
         self.right = OneSideUnivariateCUSUM(theta0=theta0, sn=sn, n=n, side="right")
-        self.left = OneSideUnivariateCUSUM(theta0=-theta0, sn=sn, n=n, side="left")
+        self.left  = OneSideUnivariateCUSUM(theta0=left_theta0, sn=sn, n=n, side="left")
 
     def initial_candidate(self):
         # return list of two side-marked candidates
@@ -185,6 +186,69 @@ class UnivariateCUSUM(CUSUM):
         combined.sort(key=lambda d: (int(d["tau"]), d.get("side", "")))
         return combined
 
+class MultivariateCUSUM(CUSUM):
+    """
+    Multivariate CUSUM with ConvexHull-based pruning.
+    If dim_indexes is provided, project to those 2D subspaces (pairs) plus tau
+    and take union of hull vertices across projections.
+    Robust to scalar initial st (interprets scalar initial st as zero-vector).
+    """
+    def __init__(self, theta0=None, sn=0.0, n=0, dim_indexes=None):
+        super().__init__(sn=sn, n=n, theta0=theta0)
+        # dim_indexes: list of pairs of dimension indices to project onto for 2D hulls
+        self.dim_indexes = dim_indexes
+
+    def prune(self, candidates):
+        K = len(candidates)
+        if K <= 1:
+            return candidates
+
+        sn_arr = np.atleast_1d(np.array(self.sn))
+        target_dim = sn_arr.size
+
+        # Build matrix of st rows, converting scalar dummy to zero-vector if needed
+        st_rows = []
+        for c in candidates:
+            st_c = np.atleast_1d(np.array(c["st"]))
+            if st_c.size == target_dim:
+                st_rows.append(st_c.copy())
+            elif st_c.size == 1 and target_dim > 1:
+                # initial dummy: convert scalar to zero-vector
+                st_rows.append(np.zeros(target_dim, dtype=float))
+            else:
+                raise ValueError(
+                    "Candidate 'st' dimensionality (%d) incompatible with current CUSUM dimension (%d)."
+                    % (st_c.size, target_dim)
+                )
+
+        st_stack = np.vstack(st_rows)  # (K, d)
+        taus = np.array([int(c["tau"]) for c in candidates])[:, None]  # (K, 1)
+        points = np.hstack([taus, st_stack])  # (K, 1 + d)
+
+        if self.dim_indexes is None:
+            # full-dim hull
+            try:
+                hull = ConvexHull(points)
+                idx = np.unique(hull.vertices)
+            except Exception:
+                idx = np.arange(K)
+        else:
+            # project to each 2D subspace (tau + each pair of dims)
+            on_hull = []
+            for pair in self.dim_indexes:
+                cols = np.append(0, np.array(pair) + 1)  # include tau at col 0
+                sub = points[:, cols]
+                try:
+                    hull = ConvexHull(sub)
+                    on_hull.extend(hull.vertices)
+                except Exception:
+                    # if hull fails (e.g. degenerate), include all indices
+                    on_hull.extend(range(K))
+            idx = np.unique(on_hull)
+
+        pruned = [candidates[i] for i in idx]
+        pruned.sort(key=lambda d: d["tau"])
+        return pruned
 
 # -------------------------
 # Univariate family-specific costs (return costs)
@@ -303,22 +367,73 @@ def compute_costs_uni_gamma(candidates, cs: CUSUM, shape=1.0):
 # Multivariate-specific costs
 # -------------------------
 def compute_costs_multi_gaussian(candidates, cs: CUSUM):
+    """
+    Vectorized multivariate Gaussian costs (variance = 1) using cs.theta0 when provided.
+    cost[i] = sum(S_i**2 / tau_i) + sum((S_n - S_i)**2 / (n - tau_i)) - sum(S_n**2 / n)
+    If cs.theta0 is provided (vector), add null-term adjustment:
+      cost[i] += -2 * <theta0, S_n> + n * ||theta0||^2
+    Invalid candidates (tau <= 0 or right_len <= 0 or n <= 0) -> -1e300.
+    """
     K = len(candidates)
+    if K == 0:
+        return np.array([], dtype=float)
+
+    # Ensure S_n is an array (d,)
+    S_n = np.atleast_1d(np.array(cs.sn, dtype=float))
+    n = int(cs.n)
+    d = S_n.size
+
+    # Build arrays of st rows and taus
+    st_rows = []
+    taus = []
+    for c in candidates:
+        st_c = np.atleast_1d(np.array(c["st"], dtype=float))
+        if st_c.size == d:
+            st_rows.append(st_c.copy())
+        elif st_c.size == 1 and d > 1:
+            # treat scalar candidate st as zero-vector (initial dummy)
+            st_rows.append(np.zeros(d, dtype=float))
+        else:
+            raise ValueError(
+                f"Candidate 'st' dimensionality ({st_c.size}) incompatible with current CUSUM dimension ({d})."
+            )
+        taus.append(int(c["tau"]))
+
+    st_stack = np.vstack(st_rows)       # shape (K, d)
+    taus = np.array(taus, dtype=float)  # shape (K,)
+    right_len = n - taus                # shape (K,)
+
+    # default costs
     costs = np.full(K, -1e300, dtype=float)
-    S_n = np.array(cs.sn)
-    n = cs.n
-    for i, c in enumerate(candidates):
-        tau = int(c["tau"])
-        S_i = np.atleast_1d(np.array(c["st"]))
-        right_len = n - tau
-        if tau <= 0 or right_len <= 0 or n <= 0:
-            costs[i] = -1e300
-            continue
-        term1 = np.sum((S_i * S_i) / float(tau))
-        term2 = np.sum(((S_n - S_i) * (S_n - S_i)) / float(right_len))
-        term3 = np.sum((S_n * S_n) / float(n))
-        costs[i] = term1 + term2 - term3
-    return costs
+
+
+    # term1: sum(S_i**2 / tau_i)
+    term1 = np.sum((st_stack**2) / taus[:, None], axis=1)    # shape (K,)
+
+    # term2: sum((S_n - S_i)**2 / right_len)
+    diff = S_n[None, :] - st_stack                           # (K, d)
+    term2 = np.sum((diff**2) / right_len[:, None], axis=1)   # shape (K,)
+
+    # term3: sum(S_n**2) / n  (scalar)
+    term3 = np.sum(S_n * S_n) / float(n)
+
+    base = term1 + term2 - term3  # shape (K,)
+
+    # Use cs.theta0 if provided (single vector for all candidates)
+    theta0 = getattr(cs, "theta0", None)
+    if theta0 is not None:
+        theta0 = np.atleast_1d(np.array(theta0, dtype=float))
+        if theta0.size != d:
+            raise ValueError(f"cs.theta0 dimensionality ({theta0.size}) incompatible with data dimension ({d}).")
+        null_adj = -2.0 * float(np.dot(theta0, S_n)) + float(n) * float(np.dot(theta0, theta0))
+        base = base + null_adj  # same adjustment for all candidates
+
+    # if there's any nan in base, set those costs to 0
+    nan_mask = np.isnan(base)
+    base[nan_mask] = 0
+
+    return base
+
 
 
 def compute_costs_multi_poisson(candidates, cs: CUSUM):
@@ -450,61 +565,77 @@ class Detector:
 if __name__ == "__main__":
     np.random.seed(0)
 
-    data = np.concatenate((np.random.normal(0, 1, 200), np.random.normal(3.5, 1, 200)))
+    # data = np.concatenate((np.random.normal(0, 1, 200), np.random.normal(3.5, 1, 200)))
 
-    # --- One-side Univariate Gaussian example (previous univariate behavior) ---
-    cs_one = OneSideUnivariateCUSUM(theta0=None)                # one-side CUSUM (right)
-    detector_one = Detector(cs_one, compute_costs_uni_gaussian)
+    # # --- One-side Univariate Gaussian example (previous univariate behavior) ---
+    # cs_one = OneSideUnivariateCUSUM(theta0=None)                # one-side CUSUM (right)
+    # detector_one = Detector(cs_one, compute_costs_uni_gaussian)
 
-    one_stat_trace = []
-    one_cp_trace = []
-    for y in data:
-        detector_one.update(float(y))
-        one_stat_trace.append(detector_one.statistic())
-        cp = detector_one.changepoint().get("changepoint", None)
-        one_cp_trace.append(np.nan if cp is None else cp)
+    # one_stat_trace = []
+    # one_cp_trace = []
+    # for y in data:
+    #     detector_one.update(float(y))
+    #     one_stat_trace.append(detector_one.statistic())
+    #     cp = detector_one.changepoint().get("changepoint", None)
+    #     one_cp_trace.append(np.nan if cp is None else cp)
 
-    # --- Two-side Univariate Gaussian example ---
-    # Use wrapper so we can reuse the same univariate cost fn for both sides
-    two_cost_fn = make_two_sided_cost_fn(compute_costs_uni_gaussian)
-    cs_two = UnivariateCUSUM(theta0=None)
-    detector_two = Detector(cs_two, two_cost_fn)
+    # # --- Two-side Univariate Gaussian example ---
+    # # Use wrapper so we can reuse the same univariate cost fn for both sides
+    # two_cost_fn = make_two_sided_cost_fn(compute_costs_uni_gaussian)
+    # cs_two = UnivariateCUSUM(theta0=None)
+    # detector_two = Detector(cs_two, two_cost_fn)
 
-    two_stat_trace = []
-    two_cp_trace = []
-    for y in data:
-        detector_two.update(float(y))
-        two_stat_trace.append(detector_two.statistic())
-        cp = detector_two.changepoint().get("changepoint", None)
-        two_cp_trace.append(np.nan if cp is None else cp)
+    # two_stat_trace = []
+    # two_cp_trace = []
+    # for y in data:
+    #     detector_two.update(float(y))
+    #     two_stat_trace.append(detector_two.statistic())
+    #     cp = detector_two.changepoint().get("changepoint", None)
+    #     two_cp_trace.append(np.nan if cp is None else cp)
 
-    # --- Multivariate Gaussian example (unchanged) ---
+    # --- Multivariate Gaussian example ---
     D = 3
-    comp_multi = None  # we use MultivariateCUSUM from previous code if needed; here we keep example minimal
-    # For demonstration, reuse prior MultivariateCUSUM from earlier version if desired
+    # multivariate CUSUM: start scalar sn=0.0; will convert on first vector update
+    cs_multi = MultivariateCUSUM(theta0=None)
+    detector_multi = Detector(cs_multi, compute_costs_multi_gaussian)
+
+    np.random.seed(0)
+    Y_pre = np.random.normal(0.0, 1.0, size=(100, D))
+    Y_post = np.random.normal([4.0, 4.0, 0.0], 1.0, size=(100, D))
+    Y = np.vstack([Y_pre, Y_post])
+
+    multi_stat_trace = []
+    multi_cp_trace = []
+    for y in Y:
+        detector_multi.update(y)
+        multi_stat_trace.append(detector_multi.statistic())
+        cp = detector_multi.changepoint().get("changepoint", None)
+        multi_cp_trace.append(np.nan if cp is None else cp) 
+    
 
     # -------------------------
     # Plotting
     # -------------------------
-    plt.figure()
-    plt.plot(np.arange(1, len(one_stat_trace) + 1), one_stat_trace, label="one-side")
-    plt.plot(np.arange(1, len(two_stat_trace) + 1), two_stat_trace, label="two-side", alpha=0.7)
-    plt.title("Univariate statistics over time (one-side vs two-side)")
-    plt.xlabel("n")
-    plt.ylabel("statistic")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
 
-    plt.figure()
-    plt.plot(np.arange(1, len(one_cp_trace) + 1), one_cp_trace, label="one-side")
-    plt.plot(np.arange(1, len(two_cp_trace) + 1), two_cp_trace, label="two-side", alpha=0.7)
-    plt.title("Estimated changepoint over time")
-    plt.xlabel("n")
-    plt.ylabel("tau_hat")
-    plt.ylim(bottom=0)
+    # plot the multivariate cusums statistics over time 
+    plt.figure(figsize=(12, 8))
+    plt.plot(multi_stat_trace, label="Multivariate CUSUM Statistic", color="blue")
+    plt.axvline(x=100, color="red", linestyle="--", label="True Change Point")
+    plt.title("Multivariate CUSUM Statistic Over Time")
+    plt.xlabel("Time")
+    plt.ylabel("CUSUM Statistic")
     plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
+    plt.grid()
+    plt.show() 
 
+    # plot the one-side and two-side univariate cusums statistics over time
+    plt.figure(figsize=(12, 8))
+    plt.plot(one_stat_trace, label="One-Side Univariate CUSUM Statistic",   color="green")
+    plt.plot(two_stat_trace, label="Two-Side Univariate CUSUM Statistic", color="orange")
+    plt.axvline(x=200, color="red", linestyle="--", label="True Change Point")
+    plt.title("Univariate CUSUM Statistics Over Time")
+    plt.xlabel("Time")
+    plt.ylabel("CUSUM Statistic")
+    plt.legend()
+    plt.grid()
     plt.show()
