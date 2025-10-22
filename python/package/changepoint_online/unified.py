@@ -193,14 +193,17 @@ class MultivariateCUSUM(CUSUM):
     and take union of hull vertices across projections.
     Robust to scalar initial st (interprets scalar initial st as zero-vector).
     """
-    def __init__(self, theta0=None, sn=0.0, n=0, dim_indexes=None):
+    def __init__(self, theta0=None, sn=0.0, n=0, dim_indexes=None, pruning_params = (2, 1)):
         super().__init__(sn=sn, n=n, theta0=theta0)
         # dim_indexes: list of pairs of dimension indices to project onto for 2D hulls
         self.dim_indexes = dim_indexes
+        self.pruning_params = pruning_params
+        self.pruning_in = 5
 
     def prune(self, candidates):
         K = len(candidates)
-        if K <= 1:
+        if K <= 1 or self.pruning_in > 0:
+            self.pruning_in -= 1
             return candidates
 
         sn_arr = np.atleast_1d(np.array(self.sn))
@@ -248,6 +251,10 @@ class MultivariateCUSUM(CUSUM):
 
         pruned = [candidates[i] for i in idx]
         pruned.sort(key=lambda d: d["tau"])
+
+        pruned_size = len(pruned)
+        self.pruning_in = int(pruned_size * (int(self.pruning_params[0])) + int(self.pruning_params[1]))        
+
         return pruned
 
 # -------------------------
@@ -367,74 +374,28 @@ def compute_costs_uni_gamma(candidates, cs: CUSUM, shape=1.0):
 # Multivariate-specific costs
 # -------------------------
 def compute_costs_multi_gaussian(candidates, cs: CUSUM):
-    """
-    Vectorized multivariate Gaussian costs (variance = 1) using cs.theta0 when provided.
-    cost[i] = sum(S_i**2 / tau_i) + sum((S_n - S_i)**2 / (n - tau_i)) - sum(S_n**2 / n)
-    If cs.theta0 is provided (vector), add null-term adjustment:
-      cost[i] += -2 * <theta0, S_n> + n * ||theta0||^2
-    Invalid candidates (tau <= 0 or right_len <= 0 or n <= 0) -> -1e300.
-    """
     K = len(candidates)
-    if K == 0:
-        return np.array([], dtype=float)
-
-    # Ensure S_n is an array (d,)
-    S_n = np.atleast_1d(np.array(cs.sn, dtype=float))
-    n = int(cs.n)
-    d = S_n.size
-
-    # Build arrays of st rows and taus
-    st_rows = []
-    taus = []
-    for c in candidates:
-        st_c = np.atleast_1d(np.array(c["st"], dtype=float))
-        if st_c.size == d:
-            st_rows.append(st_c.copy())
-        elif st_c.size == 1 and d > 1:
-            # treat scalar candidate st as zero-vector (initial dummy)
-            st_rows.append(np.zeros(d, dtype=float))
-        else:
-            raise ValueError(
-                f"Candidate 'st' dimensionality ({st_c.size}) incompatible with current CUSUM dimension ({d})."
-            )
-        taus.append(int(c["tau"]))
-
-    st_stack = np.vstack(st_rows)       # shape (K, d)
-    taus = np.array(taus, dtype=float)  # shape (K,)
-    right_len = n - taus                # shape (K,)
-
-    # default costs
     costs = np.full(K, -1e300, dtype=float)
-
-
-    # term1: sum(S_i**2 / tau_i)
-    term1 = np.sum((st_stack**2) / taus[:, None], axis=1)    # shape (K,)
-
-    # term2: sum((S_n - S_i)**2 / right_len)
-    diff = S_n[None, :] - st_stack                           # (K, d)
-    term2 = np.sum((diff**2) / right_len[:, None], axis=1)   # shape (K,)
-
-    # term3: sum(S_n**2) / n  (scalar)
-    term3 = np.sum(S_n * S_n) / float(n)
-
-    base = term1 + term2 - term3  # shape (K,)
-
-    # Use cs.theta0 if provided (single vector for all candidates)
-    theta0 = getattr(cs, "theta0", None)
-    if theta0 is not None:
-        theta0 = np.atleast_1d(np.array(theta0, dtype=float))
-        if theta0.size != d:
-            raise ValueError(f"cs.theta0 dimensionality ({theta0.size}) incompatible with data dimension ({d}).")
-        null_adj = -2.0 * float(np.dot(theta0, S_n)) + float(n) * float(np.dot(theta0, theta0))
-        base = base + null_adj  # same adjustment for all candidates
-
-    # if there's any nan in base, set those costs to 0
-    nan_mask = np.isnan(base)
-    base[nan_mask] = 0
-
-    return base
-
-
+    S_n = np.array(cs.sn)
+    n = cs.n
+    for i, c in enumerate(candidates):
+        tau = int(c["tau"])
+        S_i = np.atleast_1d(np.array(c["st"]))
+        right_len = n - tau
+        if tau <= 0 or right_len <= 0 or n <= 0:
+            costs[i] = 0
+            continue
+        term1 = np.sum((S_i * S_i) / float(tau))
+        term2 = np.sum(((S_n - S_i) * (S_n - S_i)) / float(right_len))
+        term3 = np.sum((S_n * S_n) / float(n))
+        cost = term1 + term2 - term3
+        # if the cost is nan (due to invalid operations), set to 0
+        if np.isnan(cost):
+            costs[i] = 0
+        else:
+            costs[i] = cost
+    # if there's any nan in costs, set those costs to 0
+    return costs
 
 def compute_costs_multi_poisson(candidates, cs: CUSUM):
     K = len(candidates)
@@ -599,6 +560,8 @@ if __name__ == "__main__":
     cs_multi = MultivariateCUSUM(theta0=None)
     detector_multi = Detector(cs_multi, compute_costs_multi_gaussian)
 
+    detector_multi_v2 = Detector(cs_multi, compute_costs_multi_gaussian_v2)
+
     np.random.seed(0)
     Y_pre = np.random.normal(0.0, 1.0, size=(100, D))
     Y_post = np.random.normal([4.0, 4.0, 0.0], 1.0, size=(100, D))
@@ -610,9 +573,19 @@ if __name__ == "__main__":
         detector_multi.update(y)
         multi_stat_trace.append(detector_multi.statistic())
         cp = detector_multi.changepoint().get("changepoint", None)
-        multi_cp_trace.append(np.nan if cp is None else cp) 
+        multi_cp_trace.append(np.nan if cp is None else cp)
+
+        # update v2 detector as well
+        detector_multi_v2.update(y)
+        # compare the two statistics
+        stat_v2 = detector_multi_v2.statistic()
+        stat_v1 = detector_multi.statistic()
+        if not np.isclose(stat_v1, stat_v2):
+            print(f"Discrepancy at n={detector_multi.cs.n}: v1 stat={stat_v1}, v2 stat={stat_v2}")
+
     
 
+     
     # -------------------------
     # Plotting
     # -------------------------
