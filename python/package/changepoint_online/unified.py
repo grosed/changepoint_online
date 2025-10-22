@@ -260,126 +260,127 @@ class MultivariateCUSUM(CUSUM):
 # -------------------------
 # Univariate family-specific costs (return costs)
 # -------------------------
-def compute_costs_uni_gaussian(candidates, cs: CUSUM):
-    """
-    Univariate Gaussian costs (variance = 1) with optional theta0 (null mean).
-    Returns an array of costs where the cost is 2 * log-likelihood-ratio between
-    the two-segment MLEs and the null model.
+# def compute_costs_uni_gaussian(candidates, cs: CUSUM):
+#     """
+#     Univariate Gaussian costs (variance = 1) with optional theta0 (null mean).
+#     Returns an array of costs where the cost is 2 * log-likelihood-ratio between
+#     the two-segment MLEs and the null model.
 
-    If theta0 is None: null is the global MLE (S_n / n) and we return the original expression:
-        cost = S_i^2 / tau + S_r^2 / r - S_n^2 / n
+#     If theta0 is None: null is the global MLE (S_n / n) and we return the original expression:
+#         cost = S_i^2 / tau + S_r^2 / r - S_n^2 / n
 
-    If theta0 is given: null is the fixed mean theta0, and
-        cost = S_i^2 / tau + S_r^2 / r - 2*theta0*S_n + n * theta0^2
-    """
-    K = len(candidates)
-    costs = np.full(K, 0, dtype=float)   # use -inf for impossible/invalid
-    S_n = float(cs.sn)
-    n = int(cs.n)
+#     If theta0 is given: null is the fixed mean theta0, and
+#         cost = S_i^2 / tau + S_r^2 / r - 2*theta0*S_n + n * theta0^2
+#     """
+#     K = len(candidates)
+#     costs = np.full(K, 0, dtype=float)   # use -inf for impossible/invalid
+#     S_n = float(cs.sn)
+#     n = int(cs.n)
 
-    for i, c in enumerate(candidates):
-        tau = int(c["tau"])
-        S_i = float(c["st"])
-        theta0 = c.get("theta0", None)
+#     for i, c in enumerate(candidates):
+#         tau = int(c["tau"])
+#         S_i = float(c["st"])
+#         theta0 = c.get("theta0", None)
 
-        right_len = n - tau
-        # require positive lengths (tau > 0, right_len > 0, n > 0)
-        if tau <= 0 or right_len <= 0 or n <= 0:
-            costs[i] = 0
-            continue
+#         right_len = n - tau
+#         # require positive lengths (tau > 0, right_len > 0, n > 0)
+#         if tau <= 0 or right_len <= 0 or n <= 0:
+#             costs[i] = 0
+#             continue
 
-        s_r = S_n - S_i
-        if theta0 is None:
-            # original behaviour (null = global MLE)
-            costs[i] = (S_i * S_i) / float(tau) + (s_r * s_r) / float(right_len) - (S_n * S_n) / float(n)
-        else:
-            # null mean provided: 2 * LLR vs fixed theta0
-            t0 = float(theta0)
-            costs[i] = (S_i * S_i) / float(tau) + (s_r * s_r) / float(right_len) - 2.0 * t0 * S_n + float(n) * t0 * t0
+#         s_r = S_n - S_i
+#         if theta0 is None:
+#             # original behaviour (null = global MLE)
+#             costs[i] = (S_i * S_i) / float(tau) + (s_r * s_r) / float(right_len) - (S_n * S_n) / float(n)
+#         else:
+#             # null mean provided: 2 * LLR vs fixed theta0
+#             t0 = float(theta0)
+#             costs[i] = (S_i * S_i) / float(tau) + (s_r * s_r) / float(right_len) - 2.0 * t0 * S_n + float(n) * t0 * t0
 
-    return costs
+#     return costs
 
-def compute_costs_uni_bernoulli(candidates, cs: CUSUM):
-    K = len(candidates)
-    costs = np.full(K, -1e300, dtype=float)
-    S_n = float(cs.sn)
-    n = cs.n
-    eps = 1e-9
-    for i, c in enumerate(candidates):
-        tau = int(c["tau"])
-        S_i = float(c["st"])
-        theta0 = c.get("theta0", None)
-        right_len = n - tau
-        if right_len <= 0:
-            costs[i] = -1e300
-            continue
-        s = S_n - S_i
-        p_hat = s / float(right_len)
-        p_hat = max(eps, min(1 - eps, p_hat))
-        if theta0 is None:
-            costs[i] = s * math.log(p_hat) + (right_len - s) * math.log(1 - p_hat)
-        else:
-            costs[i] = s * math.log(p_hat / theta0) + (right_len - s) * math.log((1 - p_hat) / (1 - theta0))
-    return costs
-
-
-def compute_costs_uni_poisson(candidates, cs: CUSUM):
-    K = len(candidates)
-    costs = np.full(K, -1e300, dtype=float)
-    S_n = float(cs.sn)
-    n = cs.n
-    eps = 1e-9
-    for i, c in enumerate(candidates):
-        tau = int(c["tau"])
-        S_i = float(c["st"])
-        theta0 = c.get("theta0", None)
-        right_len = n - tau
-        if right_len <= 0:
-            costs[i] = -1e300
-            continue
-        s = S_n - S_i
-        lam_hat = max(eps, s / float(right_len))
-        if theta0 is None:
-            costs[i] = - right_len * lam_hat + s * math.log(lam_hat)
-        else:
-            costs[i] = - right_len * (lam_hat - theta0) + s * math.log(lam_hat / theta0)
-    return costs
+# def compute_costs_uni_bernoulli(candidates, cs: CUSUM):
+#     K = len(candidates)
+#     costs = np.full(K, -1e300, dtype=float)
+#     S_n = float(cs.sn)
+#     n = cs.n
+#     eps = 1e-9
+#     for i, c in enumerate(candidates):
+#         tau = int(c["tau"])
+#         S_i = float(c["st"])
+#         theta0 = c.get("theta0", None)
+#         right_len = n - tau
+#         if right_len <= 0:
+#             costs[i] = -1e300
+#             continue
+#         s = S_n - S_i
+#         p_hat = s / float(right_len)
+#         p_hat = max(eps, min(1 - eps, p_hat))
+#         if theta0 is None:
+#             costs[i] = s * math.log(p_hat) + (right_len - s) * math.log(1 - p_hat)
+#         else:
+#             costs[i] = s * math.log(p_hat / theta0) + (right_len - s) * math.log((1 - p_hat) / (1 - theta0))
+#     return costs
 
 
-def compute_costs_uni_gamma(candidates, cs: CUSUM, shape=1.0):
-    K = len(candidates)
-    costs = np.full(K, -1e300, dtype=float)
-    S_n = float(cs.sn)
-    n = cs.n
-    eps = 1e-9
-    for i, c in enumerate(candidates):
-        tau = int(c["tau"])
-        S_i = float(c["st"])
-        theta0 = c.get("theta0", None)
-        right_len = n - tau
-        if right_len <= 0:
-            costs[i] = -1e300
-            continue
-        s = S_n - S_i
-        arg = s / (shape * float(right_len))
-        arg = max(eps, arg)
-        if theta0 is None:
-            costs[i] = - right_len * shape * math.log(arg) - s * (1.0 / arg)
-        else:
-            costs[i] = right_len * shape * math.log(theta0 / arg) - s * (1.0 / arg - 1.0 / theta0)
-    return costs
+# def compute_costs_uni_poisson(candidates, cs: CUSUM):
+#     K = len(candidates)
+#     costs = np.full(K, -1e300, dtype=float)
+#     S_n = float(cs.sn)
+#     n = cs.n
+#     eps = 1e-9
+#     for i, c in enumerate(candidates):
+#         tau = int(c["tau"])
+#         S_i = float(c["st"])
+#         theta0 = c.get("theta0", None)
+#         right_len = n - tau
+#         if right_len <= 0:
+#             costs[i] = -1e300
+#             continue
+#         s = S_n - S_i
+#         lam_hat = max(eps, s / float(right_len))
+#         if theta0 is None:
+#             costs[i] = - right_len * lam_hat + s * math.log(lam_hat)
+#         else:
+#             costs[i] = - right_len * (lam_hat - theta0) + s * math.log(lam_hat / theta0)
+#     return costs
+
+
+# def compute_costs_uni_gamma(candidates, cs: CUSUM, shape=1.0):
+#     K = len(candidates)
+#     costs = np.full(K, -1e300, dtype=float)
+#     S_n = float(cs.sn)
+#     n = cs.n
+#     eps = 1e-9
+#     for i, c in enumerate(candidates):
+#         tau = int(c["tau"])
+#         S_i = float(c["st"])
+#         theta0 = c.get("theta0", None)
+#         right_len = n - tau
+#         if right_len <= 0:
+#             costs[i] = -1e300
+#             continue
+#         s = S_n - S_i
+#         arg = s / (shape * float(right_len))
+#         arg = max(eps, arg)
+#         if theta0 is None:
+#             costs[i] = - right_len * shape * math.log(arg) - s * (1.0 / arg)
+#         else:
+#             costs[i] = right_len * shape * math.log(theta0 / arg) - s * (1.0 / arg - 1.0 / theta0)
+#     return costs
 
 
 # -------------------------
-# Multivariate-specific costs
+# Costs
 # -------------------------
-def compute_costs_multi_gaussian(candidates, cs: CUSUM):
+def compute_costs_gaussian(candidates, cs: CUSUM):
     K = len(candidates)
     costs = np.full(K, -1e300, dtype=float)
     S_n = np.array(cs.sn)
     n = cs.n
     for i, c in enumerate(candidates):
         tau = int(c["tau"])
+        theta0 = c["theta0"]
         S_i = np.atleast_1d(np.array(c["st"]))
         right_len = n - tau
         if tau <= 0 or right_len <= 0 or n <= 0:
@@ -387,8 +388,9 @@ def compute_costs_multi_gaussian(candidates, cs: CUSUM):
             continue
         term1 = np.sum((S_i * S_i) / float(tau))
         term2 = np.sum(((S_n - S_i) * (S_n - S_i)) / float(right_len))
-        term3 = np.sum((S_n * S_n) / float(n))
+        term3 = np.sum((S_n * S_n) / float(n)) if theta0 is None else np.sum(- 2.0 * theta0 * S_n + float(n) * theta0 * theta0)
         cost = term1 + term2 - term3
+
         # if the cost is nan (due to invalid operations), set to 0
         if np.isnan(cost):
             costs[i] = 0
@@ -466,7 +468,6 @@ class Detector:
         # store CUSUM instance and cost function
         self.cs = cs
         self.compute_costs_fn = compute_costs_fn
-        self.pieces_opt = None
 
     def update(self, y):
         """
@@ -483,9 +484,6 @@ class Detector:
         # prune using CUSUM's prune method (may accept combined list)
         self.pieces = self.cs.prune(self.pieces)
 
-        # compute costs (compute_costs_fn returns costs array)
-        vals = self.compute_costs_fn(self.pieces, self.cs)
-        self.pieces_opt = float(np.max(vals)) if len(vals) > 0 else -1e300
 
         # append new candidate(s) representing current time using cs.new_candidate()
         new_cand = self.cs.new_candidate()
@@ -499,7 +497,11 @@ class Detector:
             raise RuntimeError("cs.new_candidate() must return a dict or a list of dicts.")
 
     def statistic(self):
-        return self.pieces_opt if self.pieces_opt is not None else 0.0
+        # compute costs (compute_costs_fn returns costs array)
+        vals = self.compute_costs_fn(self.pieces, self.cs)
+        pieces_opt = float(np.max(vals)) if len(vals) > 0 else 0
+        return(pieces_opt)
+
 
     def changepoint(self):
         """
