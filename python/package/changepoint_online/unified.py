@@ -1,14 +1,3 @@
-"""
-Unified detector (single-side, candidate-only comp_create_fn)
-
-- comp_create_fn(): should be a zero-argument function that returns an initial candidate dict:
-    {"st": 0.0 or np.array([...]), "tau": 0, "theta0": ...}
-  The Detector will infer the initial CUSUM from this candidate.
-- Detector is right-side only (one candidate list).
-- Costs are split per family (univariate: gaussian/bernoulli/poisson/gamma; multivariate: gaussian/poisson).
-- Multivariate pruning uses ConvexHull (with optional 2D projections) and is robust to an initial scalar st.
-"""
-
 from dataclasses import dataclass
 import math
 import numpy as np
@@ -17,36 +6,150 @@ import matplotlib.pyplot as plt
 
 
 # -------------------------
-# State
+# State (CUSUM with behaviour)
 # -------------------------
 @dataclass
 class CUSUM:
-    sn: any = 0.0   # scalar or numpy array
+    sn: any = 0.0  # scalar or numpy array
     n: int = 0
+    theta0: any = None
+
+    # Return the initial candidate dict used by Detector at construction-time
+    def initial_candidate(self):
+        st_val = 0.0 if not isinstance(self.sn, np.ndarray) else np.array(self.sn)
+        return {"st": st_val, "tau": int(self.n), "theta0": self.theta0}
+
+    # Update CUSUM state with new observation y (scalar or 1D array)
+    def update(self, y):
+        self.n += 1
+        # If y is an ndarray, ensure sn is an array of same shape
+        if isinstance(y, np.ndarray):
+            if not isinstance(self.sn, np.ndarray):
+                # convert scalar sn to a zero-array with previous scalar added
+                self.sn = np.zeros_like(y, dtype=float) + float(self.sn)
+            self.sn = np.array(self.sn) + np.array(y)
+        else:
+            # y scalar
+            if isinstance(self.sn, np.ndarray):
+                # broadcast scalar y across vector sn
+                self.sn = np.array(self.sn) + float(y)
+            else:
+                self.sn = float(self.sn) + float(y)
+
+    # Default prune: no-op (return candidates unchanged).
+    # Subclasses override this with strategy-specific pruning.
+    def prune(self, candidates):
+        return candidates
 
 
-# -------------------------
-# Candidate-only component factories
-# -------------------------
-def comp_univariate(theta0=None):
+class UnivariateCUSUM(CUSUM):
     """
-    Zero-arg factory returning an initial univariate candidate dict.
-    Subsequent candidates produced by Detector.append (using current cs) will not come from this factory;
-    the factory is just for the initial candidate required at construction-time.
+    Univariate CUSUM with monotone-MLE pruning.
     """
-    def create():
-        return {"st": 0.0, "tau": 0, "theta0": theta0}
-    return create
+    def __init__(self, theta0=None, sn=0.0, n=0):
+        super().__init__(sn=sn, n=n, theta0=theta0)
+
+    def prune(self, candidates):
+        K = len(candidates)
+        if K <= 1:
+            return candidates
+        i = K
+        # prune based on monotone ordering of right-segment MLEs
+        while i > 1:
+            c1 = candidates[i - 1]
+            c0 = candidates[i - 2]
+            tau1 = int(c1["tau"])
+            tau0 = int(c0["tau"])
+            denom1 = self.n - tau1
+            denom0 = self.n - tau0
+
+            # compute ratios safely; if denominator <= 0, treat ratio as +inf so it won't cause pruning
+            try:
+                num1 = (np.array(self.sn) - np.array(c1["st"])).astype(float)
+            except Exception:
+                num1 = float(self.sn) - float(c1["st"])
+            try:
+                num0 = (np.array(self.sn) - np.array(c0["st"])).astype(float)
+            except Exception:
+                num0 = float(self.sn) - float(c0["st"])
+
+            ratio1 = (num1 / float(denom1)) if denom1 > 0 else float("inf")
+            ratio0 = (num0 / float(denom0)) if denom0 > 0 else float("inf")
+
+            # comparison: if newest ratio <= previous then drop newest
+            # (behaviour preserved from original make_prune_univariate)
+            if ratio1 <= ratio0:
+                i -= 1
+                if i == 1:
+                    break
+            else:
+                break
+        return candidates[:i]
 
 
-def comp_multivariate(theta0=None):
+class MultivariateCUSUM(CUSUM):
     """
-    Zero-arg factory returning an initial multivariate candidate dict.
-    We return scalar 0.0 for st (Detector handles first vector update and converts cs.sn to array).
+    Multivariate CUSUM with ConvexHull-based pruning.
+    If dim_indexes is provided, project to those 2D subspaces (pairs) plus tau
+    and take union of hull vertices across projections.
+    Robust to scalar initial st (interprets scalar initial st as zero-vector).
     """
-    def create():
-        return {"st": 0.0, "tau": 0, "theta0": theta0}
-    return create
+    def __init__(self, theta0=None, sn=0.0, n=0, dim_indexes=None):
+        super().__init__(sn=sn, n=n, theta0=theta0)
+        # dim_indexes: list of pairs of dimension indices to project onto for 2D hulls
+        self.dim_indexes = dim_indexes
+
+    def prune(self, candidates):
+        K = len(candidates)
+        if K <= 1:
+            return candidates
+
+        sn_arr = np.atleast_1d(np.array(self.sn))
+        target_dim = sn_arr.size
+
+        # Build matrix of st rows, converting scalar dummy to zero-vector if needed
+        st_rows = []
+        for c in candidates:
+            st_c = np.atleast_1d(np.array(c["st"]))
+            if st_c.size == target_dim:
+                st_rows.append(st_c.copy())
+            elif st_c.size == 1 and target_dim > 1:
+                # initial dummy: convert scalar to zero-vector
+                st_rows.append(np.zeros(target_dim, dtype=float))
+            else:
+                raise ValueError(
+                    "Candidate 'st' dimensionality (%d) incompatible with current CUSUM dimension (%d)."
+                    % (st_c.size, target_dim)
+                )
+
+        st_stack = np.vstack(st_rows)  # (K, d)
+        taus = np.array([int(c["tau"]) for c in candidates])[:, None]  # (K, 1)
+        points = np.hstack([taus, st_stack])  # (K, 1 + d)
+
+        if self.dim_indexes is None:
+            # full-dim hull
+            try:
+                hull = ConvexHull(points)
+                idx = np.unique(hull.vertices)
+            except Exception:
+                idx = np.arange(K)
+        else:
+            # project to each 2D subspace (tau + each pair of dims)
+            on_hull = []
+            for pair in self.dim_indexes:
+                cols = np.append(0, np.array(pair) + 1)  # include tau at col 0
+                sub = points[:, cols]
+                try:
+                    hull = ConvexHull(sub)
+                    on_hull.extend(hull.vertices)
+                except Exception:
+                    # if hull fails (e.g. degenerate), include all indices
+                    on_hull.extend(range(K))
+            idx = np.unique(on_hull)
+
+        pruned = [candidates[i] for i in idx]
+        pruned.sort(key=lambda d: d["tau"])
+        return pruned
 
 
 # -------------------------
@@ -62,7 +165,6 @@ def compute_costs_uni_gaussian(candidates, cs: CUSUM):
         S_i = float(c["st"])
         right_len = n - tau
         if right_len <= 0 or tau <= 0 or n <= 0:
-            #costs[i] = -1e300
             costs[i] = ((S_n - S_i) ** 2) / float(right_len) - (S_n * S_n) / float(n)
             continue
         costs[i] = (S_i * S_i) / float(tau) + ((S_n - S_i) ** 2) / float(right_len) - (S_n * S_n) / float(n)
@@ -183,155 +285,51 @@ def compute_costs_multi_poisson(candidates, cs: CUSUM):
 
 
 # -------------------------
-# Prune functions
-# -------------------------
-def make_prune_univariate(compute_costs_fn):
-    """Prune using monotone ordering of MLEs (univariate)."""
-    def prune(candidates, cs):
-        K = len(candidates)
-        if K <= 1:
-            return candidates
-        i = K
-        while i > 1 and (cs.sn - candidates[i-1]["st"])/(cs.n - candidates[i-1]["tau"]) <= (cs.sn - candidates[i-2]["st"])/(cs.n - candidates[i-2]["tau"]):
-            i -= 1
-            if i == 1:
-                break
-        return candidates[:i]
-    return prune
-
-
-def make_prune_multivariate(dim_indexes=None):
-    """
-    Prune using ConvexHull or projected 2D approximations.
-    Robust to scalar initial st dummy (converts to zero-vector for hull calculation).
-    """
-    def prune(candidates, cs):
-        K = len(candidates)
-        if K <= 1:
-            return candidates
-
-        sn_arr = np.atleast_1d(np.array(cs.sn))
-        target_dim = sn_arr.size
-
-        st_rows = []
-        for c in candidates:
-            st_c = np.atleast_1d(np.array(c["st"]))
-            if st_c.size == target_dim:
-                st_rows.append(st_c.copy())
-            elif st_c.size == 1 and target_dim > 1:
-                # initial dummy: convert scalar to zero-vector
-                st_rows.append(np.zeros(target_dim, dtype=float))
-            else:
-                raise ValueError(
-                    "Candidate 'st' dimensionality (%d) incompatible with current CUSUM dimension (%d)."
-                    % (st_c.size, target_dim)
-                )
-
-        st_stack = np.vstack(st_rows)
-        taus = np.array([c["tau"] for c in candidates])[:, None]
-        points = np.hstack([taus, st_stack])  # (K, 1 + d)
-
-        if dim_indexes is None:
-            try:
-                hull = ConvexHull(points)
-                idx = np.unique(hull.vertices)
-            except Exception:
-                idx = np.arange(K)
-        else:
-            on_hull = []
-            for pair in dim_indexes:
-                cols = np.append(0, np.array(pair) + 1)
-                sub = points[:, cols]
-                try:
-                    hull = ConvexHull(sub)
-                    on_hull.extend(hull.vertices)
-                except Exception:
-                    on_hull.extend(range(K))
-            idx = np.unique(on_hull)
-
-        pruned = [candidates[i] for i in idx]
-        pruned.sort(key=lambda d: d["tau"])
-        return pruned
-
-    return prune
-
-
-# -------------------------
-# Detector (expects comp_create_fn() -> candidate dict)
+# Detector (expects a CUSUM instance)
 # -------------------------
 class Detector:
     """
-    Single-side detector. Expects comp_create_fn to be a zero-argument callable that returns
-    an initial candidate dict: {"st": ..., "tau": ..., "theta0": ...}
+    Single-side detector. Expects a CUSUM instance (UnivariateCUSUM or MultivariateCUSUM)
+    and a compute_costs_fn(candidates, cs) function.
     """
 
-    def __init__(self, comp_create_fn, prune_fn, compute_costs_fn):
-        # comp_create_fn must be zero-arg returning a candidate dict
-        try:
-            initial = comp_create_fn()
-        except TypeError:
-            raise TypeError(
-                "comp_create_fn must be a zero-argument function that returns an initial candidate dict. "
-                "Use e.g. comp_univariate(theta0=None) which returns such a callable."
-            )
+    def __init__(self, cs: CUSUM, compute_costs_fn):
+        if not isinstance(cs, CUSUM):
+            raise TypeError("cs must be an instance of CUSUM (or subclass).")
+        initial = cs.initial_candidate()
         if not isinstance(initial, dict):
-            raise RuntimeError("comp_create_fn() must return a candidate dict.")
+            raise RuntimeError("cs.initial_candidate() must return a candidate dict.")
 
-        # infer CUSUM from candidate
-        st_val = initial.get("st", 0.0)
-        tau_val = int(initial.get("tau", 0))
-        st_arr = np.atleast_1d(np.array(st_val))
-        if st_arr.size == 1:
-            cs_sn = float(st_arr[0])
-        else:
-            cs_sn = st_arr.copy()
-        self.cs = CUSUM(sn=cs_sn, n=tau_val)
-
-        # store fns and initialise candidate list
-        self.comp_create = comp_create_fn
-        self.prune_fn = prune_fn
+        # store CUSUM instance and functions
+        self.cs = cs
         self.compute_costs_fn = compute_costs_fn
+
+        # candidate list and best-stat
         self.qr = [dict(initial)]
         self.qr_opt = None
-
-    def _update_cs(self, y):
-        # update cs.n and cs.sn; convert cs.sn to array on first vector y if necessary
-        self.cs.n += 1
-        if isinstance(y, np.ndarray):
-            if not isinstance(self.cs.sn, np.ndarray):
-                # convert scalar cs.sn to zero-array matching y's shape and add previous scalar
-                self.cs.sn = np.zeros_like(y, dtype=float) + float(self.cs.sn)
-            self.cs.sn = np.array(self.cs.sn) + np.array(y)
-        else:
-            if isinstance(self.cs.sn, np.ndarray):
-                # broadcast scalar y to vector
-                self.cs.sn = np.array(self.cs.sn) + float(y)
-            else:
-                self.cs.sn += y
 
     def update(self, y):
         """
         Process new observation y (scalar or 1-D array).
         Steps:
-         - update cs
-         - prune candidates
+         - update cs (self.cs.update)
+         - prune candidates (self.cs.prune)
          - compute costs, store opt
          - append new candidate corresponding to current (sn,n)
         """
         # update cs
-        self._update_cs(y)
+        self.cs.update(y)
 
-        # prune using provided prune_fn
-        self.qr = self.prune_fn(self.qr, self.cs)
+        # prune using CUSUM's prune method
+        self.qr = self.cs.prune(self.qr)
 
         # compute costs (compute_costs_fn returns costs array)
         vals = self.compute_costs_fn(self.qr, self.cs)
         self.qr_opt = float(np.max(vals)) if len(vals) > 0 else -1e300
 
-        # append new candidate representing current time (create dict based on current cs)
-        last_template = self.qr[-1] if len(self.qr) > 0 else {"st": 0.0, "tau": 0, "theta0": None}
+        # append new candidate representing current time (clone last template)
+        last_template = self.qr[-1] if len(self.qr) > 0 else self.cs.initial_candidate()
         new_cand = dict(last_template)
-        # set st and tau from current cs
         new_cand["st"] = np.array(self.cs.sn) if isinstance(self.cs.sn, np.ndarray) else float(self.cs.sn)
         new_cand["tau"] = int(self.cs.n)
         self.qr.append(new_cand)
@@ -359,11 +357,9 @@ if __name__ == "__main__":
 
     data = np.concatenate((np.random.normal(0, 1, 200), np.random.normal(3.5, 1, 200)))
 
-
     # --- Univariate Gaussian example ---
-    comp_uni = comp_univariate(theta0=None)                # zero-arg factory, returns candidate dict
-    prune_uni = make_prune_univariate(compute_costs_uni_gaussian)
-    detector_uni = Detector(comp_uni, prune_uni, compute_costs_uni_gaussian)
+    cs_uni = UnivariateCUSUM(theta0=None)                # univariate CUSUM initializer
+    detector_uni = Detector(cs_uni, compute_costs_uni_gaussian)
 
     uni_stat_trace = []
     uni_cp_trace = []
@@ -375,10 +371,10 @@ if __name__ == "__main__":
 
     # --- Multivariate Gaussian example ---
     D = 3
-    comp_multi = comp_multivariate(theta0=None)            # zero-arg factory
+    # multivariate CUSUM: start scalar sn=0.0; will convert on first vector update
     dim_pairs = [(0, 1), (0, 2), (1, 2)]
-    prune_multi = make_prune_multivariate(dim_indexes=dim_pairs)
-    detector_multi = Detector(comp_multi, prune_multi, compute_costs_multi_gaussian)
+    cs_multi = MultivariateCUSUM(theta0=None, dim_indexes=dim_pairs)
+    detector_multi = Detector(cs_multi, compute_costs_multi_gaussian)
 
     Y_pre = np.random.normal(0.0, 1.0, size=(100, D))
     Y_post = np.random.normal([4.0, 4.0, 0.0], 1.0, size=(100, D))
