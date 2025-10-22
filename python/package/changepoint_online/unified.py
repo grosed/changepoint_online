@@ -139,7 +139,7 @@ class UnivariateCUSUM(CUSUM):
         super().__init__(sn=sn, n=n, theta0=theta0)
         # create internal side-specific CUSUMs; they will be updated with y and -y respectively
         self.right = OneSideUnivariateCUSUM(theta0=theta0, sn=sn, n=n, side="right")
-        self.left = OneSideUnivariateCUSUM(theta0=theta0, sn=sn, n=n, side="left")
+        self.left = OneSideUnivariateCUSUM(theta0=-theta0, sn=sn, n=n, side="left")
 
     def initial_candidate(self):
         # return list of two side-marked candidates
@@ -156,8 +156,7 @@ class UnivariateCUSUM(CUSUM):
         # update right with y
         self.right.update(y)
         # update left with -y
-        negy = -y if not isinstance(y, np.ndarray) else -1.0 * np.array(y)
-        self.left.update(negy)
+        self.left.update(-y)
         # keep top-level sn/n as informational (not used by univariate cost functions for two-side,
         # but keep consistent)
         self.n = self.right.n
@@ -191,21 +190,43 @@ class UnivariateCUSUM(CUSUM):
 # Univariate family-specific costs (return costs)
 # -------------------------
 def compute_costs_uni_gaussian(candidates, cs: CUSUM):
+    """
+    Univariate Gaussian costs (variance = 1) with optional theta0 (null mean).
+    Returns an array of costs where the cost is 2 * log-likelihood-ratio between
+    the two-segment MLEs and the null model.
+
+    If theta0 is None: null is the global MLE (S_n / n) and we return the original expression:
+        cost = S_i^2 / tau + S_r^2 / r - S_n^2 / n
+
+    If theta0 is given: null is the fixed mean theta0, and
+        cost = S_i^2 / tau + S_r^2 / r - 2*theta0*S_n + n * theta0^2
+    """
     K = len(candidates)
-    costs = np.full(K, -1e300, dtype=float)
+    costs = np.full(K, 0, dtype=float)   # use -inf for impossible/invalid
     S_n = float(cs.sn)
-    n = cs.n
+    n = int(cs.n)
+
     for i, c in enumerate(candidates):
         tau = int(c["tau"])
         S_i = float(c["st"])
-        right_len = n - tau
-        if right_len <= 0 or tau <= 0 or n <= 0:
-            # replicate prior logic: produce same expression as original
-            costs[i] = ((S_n - S_i) ** 2) / float(right_len) - (S_n * S_n) / float(n)
-            continue
-        costs[i] = (S_i * S_i) / float(tau) + ((S_n - S_i) ** 2) / float(right_len) - (S_n * S_n) / float(n)
-    return costs
+        theta0 = c.get("theta0", None)
 
+        right_len = n - tau
+        # require positive lengths (tau > 0, right_len > 0, n > 0)
+        if tau <= 0 or right_len <= 0 or n <= 0:
+            costs[i] = 0
+            continue
+
+        s_r = S_n - S_i
+        if theta0 is None:
+            # original behaviour (null = global MLE)
+            costs[i] = (S_i * S_i) / float(tau) + (s_r * s_r) / float(right_len) - (S_n * S_n) / float(n)
+        else:
+            # null mean provided: 2 * LLR vs fixed theta0
+            t0 = float(theta0)
+            costs[i] = (S_i * S_i) / float(tau) + (s_r * s_r) / float(right_len) - 2.0 * t0 * S_n + float(n) * t0 * t0
+
+    return costs
 
 def compute_costs_uni_bernoulli(candidates, cs: CUSUM):
     K = len(candidates)
@@ -359,17 +380,17 @@ class Detector:
             raise TypeError("cs must be an instance of CUSUM (or subclass).")
         initial = cs.initial_candidate()
         if isinstance(initial, dict):
-            self.qr = [dict(initial)]
+            self.pieces = [dict(initial)]
         elif isinstance(initial, list):
             # copy list of candidate dicts
-            self.qr = [dict(x) for x in initial]
+            self.pieces = [dict(x) for x in initial]
         else:
             raise RuntimeError("cs.initial_candidate() must return a candidate dict or a list of candidate dicts.")
 
         # store CUSUM instance and cost function
         self.cs = cs
         self.compute_costs_fn = compute_costs_fn
-        self.qr_opt = None
+        self.pieces_opt = None
 
     def update(self, y):
         """
@@ -384,38 +405,38 @@ class Detector:
         self.cs.update(y)
 
         # prune using CUSUM's prune method (may accept combined list)
-        self.qr = self.cs.prune(self.qr)
+        self.pieces = self.cs.prune(self.pieces)
 
         # compute costs (compute_costs_fn returns costs array)
-        vals = self.compute_costs_fn(self.qr, self.cs)
-        self.qr_opt = float(np.max(vals)) if len(vals) > 0 else -1e300
+        vals = self.compute_costs_fn(self.pieces, self.cs)
+        self.pieces_opt = float(np.max(vals)) if len(vals) > 0 else -1e300
 
         # append new candidate(s) representing current time using cs.new_candidate()
         new_cand = self.cs.new_candidate()
         if isinstance(new_cand, dict):
-            self.qr.append(dict(new_cand))
+            self.pieces.append(dict(new_cand))
         elif isinstance(new_cand, list):
             # this is the typical case for a two-side CUSUM test
             for nc in new_cand:
-                self.qr.append(dict(nc))
+                self.pieces.append(dict(nc))
         else:
             raise RuntimeError("cs.new_candidate() must return a dict or a list of dicts.")
 
     def statistic(self):
-        return self.qr_opt if self.qr_opt is not None else 0.0
+        return self.pieces_opt if self.pieces_opt is not None else 0.0
 
     def changepoint(self):
         """
         Return most-likely changepoint (tau) and stat based on current costs.
         Exclude the very last candidate(s) (they are the dummy(s) for the current time).
         """
-        if len(self.qr) <= 1:
+        if len(self.pieces) <= 1:
             return {"stopping_time": self.cs.n, "changepoint": None, "stat": None}
         # exclude the last candidate entry (for One-side we exclude last one; for Two-side we exclude
         # as many trailing candidates as new_candidate() returns)
         last_candidates = self.cs.new_candidate()
         exclude_count = 1 if isinstance(last_candidates, dict) else len(last_candidates)
-        considered = self.qr[:-exclude_count]
+        considered = self.pieces[:-exclude_count]
         if len(considered) == 0:
             return {"stopping_time": self.cs.n, "changepoint": None, "stat": None}
         vals = self.compute_costs_fn(considered, self.cs)
