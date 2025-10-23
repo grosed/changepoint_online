@@ -26,20 +26,12 @@ class Info:
     # Update Info state with new observation y (scalar or 1D array)
     def update(self, y):
         self.n += 1
-        # If y is an ndarray, ensure sn is an array of same shape
+        # If y is an ndarray, we are in the multivariate case
         if isinstance(y, np.ndarray):
-            # if not isinstance(self.sn, np.ndarray):
-            #     # convert scalar sn to a zero-array with previous scalar added
-            #     self.sn = np.zeros_like(y, dtype=float) + float(self.sn)
             self.sn = np.array(self.sn) + np.array(y)
         else:
             # y scalar
             self.sn = float(self.sn) + float(y)
-            # if isinstance(self.sn, np.ndarray):
-            #     # broadcast scalar y across vector sn
-            #     self.sn = np.array(self.sn) + float(y)
-            # else:
-            #     self.sn = float(self.sn) + float(y)
 
     # Default prune: no-op (return candidates unchanged).
     # Subclasses override this with strategy-specific pruning.
@@ -197,22 +189,18 @@ class MultivariateInfo(Info):
         sn_arr = np.atleast_1d(np.array(self.sn))
         target_dim = sn_arr.size
 
-        # Build matrix of st rows, converting scalar dummy to zero-vector if needed
-        st_rows = []
-        for c in candidates:
-            st_c = np.atleast_1d(np.array(c["st"]))
-            if st_c.size == target_dim:
-                st_rows.append(st_c.copy())
-            elif st_c.size == 1 and target_dim > 1:
-                # initial dummy: convert scalar to zero-vector
-                st_rows.append(np.zeros(target_dim, dtype=float))
-            else:
-                raise ValueError(
-                    "Candidate 'st' dimensionality (%d) incompatible with current Info dimension (%d)."
-                    % (st_c.size, target_dim)
-                )
+        # convert the first candidate st to have the right dimension if needed
+        if np.isscalar(candidates[0]["st"]):
+            candidates[0]["st"] = np.zeros(target_dim, dtype=float)
 
-        st_stack = np.vstack(st_rows)  # (K, d)
+        # Build matrix of st rows, converting scalar dummy to zero-vector if needed
+        rows = [np.asarray(c["st"], dtype=float) for c in candidates]
+        st_stack = np.vstack(rows)   # shape (K, d)
+
+        if st_stack.shape[1] != target_dim:
+            raise ValueError(f"Candidate st dimension mismatch: {st_stack.shape[1]} != {target_dim}")
+
+
         taus = np.array([int(c["tau"]) for c in candidates])[:, None]  # (K, 1)
         points = np.hstack([taus, st_stack])  # (K, 1 + d)
 
@@ -279,23 +267,35 @@ def compute_costs_gaussian(candidates, cs: Info):
     # if there's any nan in costs, set those costs to 0
     return costs
 
-def compute_costs_multi_poisson(candidates, cs: Info):
+def compute_costs_poisson(candidates, cs: Info):
     K = len(candidates)
     costs = np.full(K, -1e300, dtype=float)
     S_n = np.array(cs.sn)
     n = cs.n
-    eps = 1e-9
+    max_l = lambda st, tau: np.sum(- st + st * np.log(st / tau))
+    term3 = max_l(S_n, n)
     for i, c in enumerate(candidates):
         tau = int(c["tau"])
+        theta0 = c["theta0"]
         S_i = np.atleast_1d(np.array(c["st"]))
         right_len = n - tau
         if right_len <= 0:
-            costs[i] = -1e300
+            costs[i] = 0
             continue
-        r = S_n - S_i
-        lam_hat = np.maximum(eps, r / float(right_len))
-        term = np.sum(- float(right_len) * lam_hat + r * np.log(lam_hat))
-        costs[i] = term
+        if theta0 is None:
+            term1 = max_l(S_i, tau)
+            term2 = max_l(S_n - S_i, right_len)
+            cost = term1 + term2 - term3
+        else:
+            term2 = max_l(S_n - S_i, right_len)
+            null = np.sum(- right_len * theta0 + (S_n - S_i) * np.log(theta0))
+            cost = term2 - null
+
+        # if the cost is nan (due to invalid operations), set to 0
+        if np.isnan(cost):
+            costs[i] = 0
+        else:
+            costs[i] = cost
     return costs
 
 
