@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 
 
 # -------------------------
-# State (CUSUM with behaviour)
+# State (Info with behaviour)
 # -------------------------
 @dataclass
-class CUSUM:
+class Info:
     sn: any = 0.0  # scalar or numpy array
     n: int = 0
     theta0: any = None
@@ -23,22 +23,23 @@ class CUSUM:
                 "tau": int(self.n),
                 "theta0": self.theta0}
 
-    # Update CUSUM state with new observation y (scalar or 1D array)
+    # Update Info state with new observation y (scalar or 1D array)
     def update(self, y):
         self.n += 1
         # If y is an ndarray, ensure sn is an array of same shape
         if isinstance(y, np.ndarray):
-            if not isinstance(self.sn, np.ndarray):
-                # convert scalar sn to a zero-array with previous scalar added
-                self.sn = np.zeros_like(y, dtype=float) + float(self.sn)
+            # if not isinstance(self.sn, np.ndarray):
+            #     # convert scalar sn to a zero-array with previous scalar added
+            #     self.sn = np.zeros_like(y, dtype=float) + float(self.sn)
             self.sn = np.array(self.sn) + np.array(y)
         else:
             # y scalar
-            if isinstance(self.sn, np.ndarray):
-                # broadcast scalar y across vector sn
-                self.sn = np.array(self.sn) + float(y)
-            else:
-                self.sn = float(self.sn) + float(y)
+            self.sn = float(self.sn) + float(y)
+            # if isinstance(self.sn, np.ndarray):
+            #     # broadcast scalar y across vector sn
+            #     self.sn = np.array(self.sn) + float(y)
+            # else:
+            #     self.sn = float(self.sn) + float(y)
 
     # Default prune: no-op (return candidates unchanged).
     # Subclasses override this with strategy-specific pruning.
@@ -46,9 +47,9 @@ class CUSUM:
         return candidates
 
 
-class OneSideUnivariateCUSUM(CUSUM):
+class OneSideUnivariateInfo(Info):
     """
-    One side univariate CUSUM (positive change if side == 'right', negative if side == 'left').
+    One side univariate Info (positive change if side == 'right', negative if side == 'left').
     Implements monotone-MLE pruning for candidates that belong to this side.
     """
 
@@ -116,9 +117,9 @@ class OneSideUnivariateCUSUM(CUSUM):
             return combined
 
 
-class UnivariateCUSUM(CUSUM):
+class UnivariateInfo(Info):
     """
-    Two-sided univariate CUSUM composed of two OneSideUnivariateCUSUM instances:
+    Two-sided univariate Info composed of two OneSideUnivariateInfo instances:
       - right: detects positive changes using y
       - left : detects positive changes on -y (i.e. negative changes on y)
     This class coordinates updates/pruning and exposes combined initial/new candidates for Detector.
@@ -128,9 +129,9 @@ class UnivariateCUSUM(CUSUM):
         super().__init__(sn=sn, n=n, theta0=theta0)
         # only negate if theta0 provided
         left_theta0 = -theta0 if theta0 is not None else None
-        # create internal side-specific CUSUMs with correct per-side theta0
-        self.right = OneSideUnivariateCUSUM(theta0=theta0, sn=sn, n=n, side="right")
-        self.left  = OneSideUnivariateCUSUM(theta0=left_theta0, sn=sn, n=n, side="left")
+        # create internal side-specific Infos with correct per-side theta0
+        self.right = OneSideUnivariateInfo(theta0=theta0, sn=sn, n=n, side="right")
+        self.left  = OneSideUnivariateInfo(theta0=left_theta0, sn=sn, n=n, side="left")
 
 
     def new_candidate(self):
@@ -173,9 +174,9 @@ class UnivariateCUSUM(CUSUM):
         combined.sort(key=lambda d: (int(d["tau"]), d.get("side", "")))
         return combined
 
-class MultivariateCUSUM(CUSUM):
+class MultivariateInfo(Info):
     """
-    Multivariate CUSUM with ConvexHull-based pruning.
+    Multivariate Info with ConvexHull-based pruning.
     If dim_indexes is provided, project to those 2D subspaces (pairs) plus tau
     and take union of hull vertices across projections.
     Robust to scalar initial st (interprets scalar initial st as zero-vector).
@@ -207,7 +208,7 @@ class MultivariateCUSUM(CUSUM):
                 st_rows.append(np.zeros(target_dim, dtype=float))
             else:
                 raise ValueError(
-                    "Candidate 'st' dimensionality (%d) incompatible with current CUSUM dimension (%d)."
+                    "Candidate 'st' dimensionality (%d) incompatible with current Info dimension (%d)."
                     % (st_c.size, target_dim)
                 )
 
@@ -248,7 +249,7 @@ class MultivariateCUSUM(CUSUM):
 # -------------------------
 # Costs
 # -------------------------
-def compute_costs_gaussian(candidates, cs: CUSUM):
+def compute_costs_gaussian(candidates, cs: Info):
     K = len(candidates)
     costs = np.full(K, -1e300, dtype=float)
     S_n = np.array(cs.sn)
@@ -261,10 +262,14 @@ def compute_costs_gaussian(candidates, cs: CUSUM):
         if tau <= 0 or right_len <= 0 or n <= 0:
             costs[i] = 0
             continue
-        term1 = np.sum((S_i * S_i) / float(tau))
-        term2 = np.sum(((S_n - S_i) * (S_n - S_i)) / float(right_len))
-        term3 = np.sum((S_n * S_n) / float(n)) if theta0 is None else np.sum(- 2.0 * theta0 * S_n + float(n) * theta0 * theta0)
-        cost = term1 + term2 - term3
+        if theta0 is None:
+            term1 = np.sum((S_i * S_i) / float(tau)) 
+            term2 = np.sum(((S_n - S_i) * (S_n - S_i)) / float(right_len))
+            term3 = np.sum((S_n * S_n) / float(n))
+            cost = term1 + term2 - term3
+        else:
+            shifted = S_n - S_i - right_len * theta0
+            cost = np.sum(shifted * shifted) / float(right_len)
 
         # if the cost is nan (due to invalid operations), set to 0
         if np.isnan(cost):
@@ -274,7 +279,7 @@ def compute_costs_gaussian(candidates, cs: CUSUM):
     # if there's any nan in costs, set those costs to 0
     return costs
 
-def compute_costs_multi_poisson(candidates, cs: CUSUM):
+def compute_costs_multi_poisson(candidates, cs: Info):
     K = len(candidates)
     costs = np.full(K, -1e300, dtype=float)
     S_n = np.array(cs.sn)
@@ -300,8 +305,8 @@ def compute_costs_multi_poisson(candidates, cs: CUSUM):
 def make_two_sided_cost_fn(base_cost_fn):
     """
     Wrap a univariate base_cost_fn(candidates, cs_side) so that it can operate on the
-    combined candidate list produced by UnivariateCUSUM. The wrapper dispatches
-    each candidate to the appropriate side's CUSUM (cs.left or cs.right).
+    combined candidate list produced by UnivariateInfo. The wrapper dispatches
+    each candidate to the appropriate side's Info (cs.left or cs.right).
     """
     def fn(candidates, cs):
         costs = np.full(len(candidates), -1e300, dtype=float)
@@ -319,18 +324,18 @@ def make_two_sided_cost_fn(base_cost_fn):
 
 
 # -------------------------
-# Detector (expects a CUSUM instance)
+# Detector (expects a Info instance)
 # -------------------------
 class Detector:
     """
     Single-side detector (or two-side if cs provides multiple candidates).
-    Expects a CUSUM instance (OneSideUnivariateCUSUM, UnivariateCUSUM, MultivariateCUSUM, ...).
+    Expects a Info instance (OneSideUnivariateInfo, UnivariateInfo, MultivariateInfo, ...).
     compute_costs_fn must accept (candidates, cs) and return a numpy array of costs.
     """
 
-    def __init__(self, cs: CUSUM, compute_costs_fn):
-        if not isinstance(cs, CUSUM):
-            raise TypeError("cs must be an instance of CUSUM (or subclass).")
+    def __init__(self, cs: Info, compute_costs_fn):
+        if not isinstance(cs, Info):
+            raise TypeError("cs must be an instance of Info (or subclass).")
         initial = cs.new_candidate()
         if isinstance(initial, dict):
             self.pieces = [dict(initial)]
@@ -340,7 +345,7 @@ class Detector:
         else:
             raise RuntimeError("cs.new_candidate() must return a candidate dict or a list of candidate dicts.")
 
-        # store CUSUM instance and cost function
+        # store Info instance and cost function
         self.cs = cs
         self.compute_costs_fn = compute_costs_fn
 
@@ -356,7 +361,7 @@ class Detector:
         # update cs to add a new observation (may update side-internals)
         self.cs.update(y)
 
-        # prune using CUSUM's prune method (may accept combined list)
+        # prune using Info's prune method (may accept combined list)
         self.pieces = self.cs.prune(self.pieces)
 
 
@@ -365,7 +370,7 @@ class Detector:
         if isinstance(new_cand, dict):
             self.pieces.append(dict(new_cand))
         elif isinstance(new_cand, list):
-            # this is the typical case for a two-side CUSUM test
+            # this is the typical case for a two-side Info test
             for nc in new_cand:
                 self.pieces.append(dict(nc))
         else:
@@ -404,8 +409,8 @@ if __name__ == "__main__":
     np.random.seed(0)
     # --- Multivariate Gaussian example ---
     D = 3
-    # multivariate CUSUM: start scalar sn=0.0; will convert on first vector update
-    cs_multi = MultivariateCUSUM(theta0=None)
+    # multivariate Info: start scalar sn=0.0; will convert on first vector update
+    cs_multi = MultivariateInfo(theta0=None)
     detector_multi = Detector(cs_multi, compute_costs_gaussian)
 
 
